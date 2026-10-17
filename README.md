@@ -57,7 +57,9 @@ For a USB mode, connect the Car Thing directly to the computer, not through the 
 
 ## First install
 
-1. Get a release folder of PlayThing (or make one, see "Build"), and open a terminal in it.
+1. Download `plaything-0.1.0-beta.zip` from the [Releases page](https://github.com/tatujan/PlayThing/releases) of this repository,
+   unzip it, and open a terminal in the folder `plaything-0.1.0-beta`. (Or make a release folder
+   yourself, see "Build".)
 2. Disconnect the Car Thing. Hold presets 1 and 4, connect it directly to the computer, and
    release after about 3 seconds.
 3. Run `python3 flash.py install`, and push Enter at each question. The tool downloads the
@@ -76,8 +78,9 @@ For a USB mode, connect the Car Thing directly to the computer, not through the 
 
 1. Disconnect the Car Thing. Hold preset 4, connect it directly to the computer, and release
    after about 3 seconds.
-2. In the folder of the new release, run `python3 flash.py install`, and push Enter at the
-   question. The tool writes only the blocks that changed (about 3 minutes). Your data stays.
+2. Download and unzip the zip of the new release from the [Releases page](https://github.com/tatujan/PlayThing/releases).
+   In its folder, run `python3 flash.py install`, and push Enter at the question. The tool
+   writes only the blocks that changed (about 3 minutes). Your data stays.
 3. Disconnect the Car Thing, and connect it to the hub.
 
 ## DiPlay updates (over the air)
