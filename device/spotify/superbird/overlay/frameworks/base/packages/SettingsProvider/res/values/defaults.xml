@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- The Car Thing is a car display without a battery: the screen stays on while it
+     has power, and the buttons are not wake keys. These defaults apply when /data is
+     new (first boot, wipe, or the RAM fallback of data-setup.sh). -->
+<resources>
+    <integer name="def_screen_off_timeout">2147483647</integer>
+    <bool name="def_lockscreen_disabled">true</bool>
+    <!-- No setup wizard. Without these, MediaSessionService drops media keys ("user setup
+         is in progress"). -->
+    <bool name="def_user_setup_complete">true</bool>
+    <bool name="def_device_provisioned">true</bool>
+    <!-- Automatic brightness on a new /data (docs/display-brightness.md). -->
+    <bool name="def_screen_brightness_automatic_mode">true</bool>
+    <integer name="def_screen_brightness">118</integer>
+</resources>

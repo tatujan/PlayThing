@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# gralloc reads the frame buffer attributes in /sys/class/graphics/fb0.
+allow hal_graphics_allocator_default sysfs_cpt_display:dir r_dir_perms;
+allow hal_graphics_allocator_default sysfs_cpt_display:file r_file_perms;

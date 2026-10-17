@@ -1,0 +1,15 @@
+# Build output and the files that the build exchanges between the containers.
+out/
+# eMMC dumps contain device-unique data.
+backups/
+# Raw device logs contain device-unique data.
+logs/
+# Your own ADB public key (README.md, Build).
+device/spotify/superbird/adb_keys.pub
+# flash.py in a checkout: its environment, downloads, and work files.
+.venv/
+.tools/
+.cache/
+work/
+__pycache__/
+.DS_Store

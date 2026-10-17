@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- PlayThing audio policy (docs/bluetooth-audio.md).
+     primary: microphones. Its speaker output is a stub, because the device has no speaker.
+     a2dp: audio to the car over Bluetooth. This is the first choice.
+     usb: audio to a USB audio adapter on the car AUX input. This is the fallback. -->
+<audioPolicyConfiguration version="1.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+    <globalConfiguration speaker_drc_enabled="false"/>
+    <modules>
+        <xi:include href="primary_audio_policy_configuration.xml"/>
+        <xi:include href="a2dp_audio_policy_configuration.xml"/>
+        <xi:include href="usb_audio_policy_configuration.xml"/>
+    </modules>
+    <xi:include href="audio_policy_volumes.xml"/>
+    <xi:include href="default_volume_tables.xml"/>
+</audioPolicyConfiguration>

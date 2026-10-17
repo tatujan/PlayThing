@@ -1,0 +1,6 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# healthd asks for CAP_WAKE_ALARM (timerfd with CLOCK_BOOTTIME_ALARM) at each boot; AOSP does
+# not give it. Without it, healthd has no wake alarm. The Car Thing has no battery and never
+# suspends (wake lock, init.superbird.rc), so it needs none.
+dontaudit healthd self:global_capability2_class_set wake_alarm;

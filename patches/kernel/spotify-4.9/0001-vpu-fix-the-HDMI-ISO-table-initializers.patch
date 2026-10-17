@@ -1,0 +1,39 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] vpu: fix the HDMI ISO table initializers
+
+struct vpu_ctrl_s is {vmod, reg, val, bit, len}, but vpu_hdmi_iso_gxb and
+vpu_hdmi_iso_sm1 use four positional values (reg, val, bit, len). Thus .reg
+is 1, and vpu_power_on reads AO bus offset 1. The unaligned read causes an
+alignment fault (Oops 96000021) in vpu_probe. The end marker is also in the
+wrong field, so the loop reads past the table.
+
+The Car Thing only runs this code when U-Boot did not power on the VPU,
+for example in a RAM boot from mask-ROM USB mode.
+
+---
+diff --git a/drivers/amlogic/media/common/vpu/vpu_ctrl.h b/drivers/amlogic/media/common/vpu/vpu_ctrl.h
+index 10302e9a9845..ea477c51066e 100644
+--- a/drivers/amlogic/media/common/vpu/vpu_ctrl.h
++++ b/drivers/amlogic/media/common/vpu/vpu_ctrl.h
+@@ -636,15 +636,15 @@ static struct vpu_ctrl_s vpu_clk_gate_g12a[] = {
+ /*                 VPU_HDMI ISO                            */
+ /* ******************************************************* */
+ static struct vpu_ctrl_s vpu_hdmi_iso_gxb[] = {
+-	/* reg,                val, bit, len */
+-	{AO_RTI_GEN_PWR_SLEEP0,  1,   9,   1},
+-	{VPU_REG_END,            0,   0,   0},
++	/* struct vpu_ctrl_s has vmod first, so use field names */
++	{.reg = AO_RTI_GEN_PWR_SLEEP0, .val = 1, .bit = 9, .len = 1},
++	{.reg = VPU_REG_END},
+ };
+ 
+ static struct vpu_ctrl_s vpu_hdmi_iso_sm1[] = {
+-	/* reg,                val, bit, len */
+-	{AO_RTI_GEN_PWR_ISO0,    1,   8,   1},
+-	{VPU_REG_END,            0,   0,   0},
++	/* struct vpu_ctrl_s has vmod first, so use field names */
++	{.reg = AO_RTI_GEN_PWR_ISO0, .val = 1, .bit = 8, .len = 1},
++	{.reg = VPU_REG_END},
+ };
+ 
+ /* ******************************************************* */

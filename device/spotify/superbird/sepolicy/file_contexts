@@ -1,0 +1,14 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing device file labels (docs/selinux.md).
+
+# Mali GPU (kbase r16p0): SurfaceFlinger, system_server, apps, boot animation.
+/dev/mali0                  u:object_r:gpu_device:s0
+# Bluetooth UART of the BCM20703A2 (the Android Bluetooth HAL opens it, libbt-vendor).
+/dev/ttyS1                  u:object_r:hci_attach_dev:s0
+# zram0 is swap (mkswap, swapon_all); zram1 is /data when data-setup.sh falls back to RAM.
+/dev/block/zram[0-9]+       u:object_r:swap_block_device:s0
+# The stock data partition: data-setup.sh keeps the persistent /data image on it.
+/dev/block/data             u:object_r:cpt_stock_data_block_device:s0
+# Our folder in the stock data file system (data-setup.sh): init labels it after the mount.
+/mnt/vendor/cpt-stock/plaything(/.*)?    u:object_r:cpt_stock_data_file:s0

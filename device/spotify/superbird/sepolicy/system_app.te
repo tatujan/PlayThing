@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Settings (data usage summary) looks in /sys/fs/bpf, which only netd may use. The Car Thing
+# has no traffic accounting with eBPF, so do not log the denial.
+dontaudit system_app fs_bpf:dir search;

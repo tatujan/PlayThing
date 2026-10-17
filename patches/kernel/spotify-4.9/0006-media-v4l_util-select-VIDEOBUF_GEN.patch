@@ -1,0 +1,21 @@
+From: PlayThing builder <builder@localhost>
+Date: Tue, 13 Oct 2026 19:30:00 +0000
+Subject: [PATCH] media: v4l_util: select VIDEOBUF_GEN
+
+videobuf-res.c calls videobuf_queue_core_init() and videobuf_queue_cancel()
+from the videobuf core (VIDEOBUF_GEN), but AMLOGIC_VIDEOBUF_RESOURCE does not
+select it. Without another driver that selects VIDEOBUF_GEN, vmlinux does
+not link. Needed for the media_modules decoders (ionvideo).
+---
+diff --git a/drivers/amlogic/media/common/v4l_util/Kconfig b/drivers/amlogic/media/common/v4l_util/Kconfig
+index 5511b627ea43..02ceb5497687 100644
+--- a/drivers/amlogic/media/common/v4l_util/Kconfig
++++ b/drivers/amlogic/media/common/v4l_util/Kconfig
+@@ -6,6 +6,7 @@ config AMLOGIC_VIDEOBUF_RESOURCE
+ 	bool "Amlogic V4L UTIL Support"
+ 	select VIDEOBUF2_DMA_CONTIG
+ 	select V4L2_MEM2MEM_DEV
++	select VIDEOBUF_GEN
+ 	default n
+ 	help
+ 		Select to enable V4L UTIL support

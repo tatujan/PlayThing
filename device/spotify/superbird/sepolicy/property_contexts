@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# data-setup.sh: ro.plaything.data (emmc or ram), and the devices that init mounts
+# (stock_dev, data_dev, ram_dev).
+ro.plaything.            u:object_r:cpt_data_prop:s0

@@ -1,0 +1,31 @@
+// Copyright (C) 2026 The PlayThing Authors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// H.264 decoder on the Amlogic hardware decoder (docs/video.md). SoftOMXPlugin loads
+// it as libstagefright_soft_cpth264dec.so for "OMX.google.cpt.h264.decoder"
+// (patches/aosp/frameworks/av/0003-*).
+cc_library_shared {
+    name: "libstagefright_soft_cpth264dec",
+
+    srcs: ["SoftCptAVC.cpp"],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    version_script: "exports.lds",
+
+    include_dirs: [
+        "frameworks/av/media/libstagefright/include",
+        "frameworks/native/include/media/openmax",
+    ],
+
+    shared_libs: [
+        "libcutils",
+        "libion",
+        "liblog",
+        "libstagefright_foundation",
+        "libstagefright_omx",
+        "libutils",
+    ],
+}

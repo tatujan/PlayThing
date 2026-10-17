@@ -1,0 +1,15 @@
+// Copyright (C) 2026 The PlayThing Authors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// PlayThing HWC2 module: shows the client target on the panel (hwcomposer.cpp).
+cc_library_shared {
+    name: "hwcomposer.superbird",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: ["hwcomposer.cpp"],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libhardware",
+        "liblog",
+    ],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
+}

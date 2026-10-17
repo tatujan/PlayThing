@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- Donor project for the AOSP Pie tree (docs/graphics.md): the Mali gralloc. The revision is pinned.
+     The HWC is our own (device/spotify/superbird/hwcomposer).
+     scripts/aosp-prepare.sh copies this file to /aosp/.repo/local_manifests/. -->
+<manifest>
+  <remote name="github" fetch="https://github.com/" />
+
+  <project path="hardware/amlogic/gralloc"
+           name="codewalkerster/android_hardware_amlogic_gralloc"
+           remote="github"
+           revision="e2821da49ea8cbf9f729d27fbd7980899a5a7b24"
+           upstream="g12_9.0.0_32_master"
+           clone-depth="1" />
+</manifest>

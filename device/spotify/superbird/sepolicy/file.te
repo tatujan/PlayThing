@@ -1,0 +1,15 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing sysfs types (genfs_contexts).
+type sysfs_cpt_als, fs_type, sysfs_type;
+type sysfs_cpt_firmware_path, fs_type, sysfs_type;
+type sysfs_cpt_display, fs_type, sysfs_type;
+# The display folders had the generic sysfs type, which all domains may search; keep that.
+allow domain sysfs_cpt_display:dir search;
+# The stock data partition (data-setup.sh), and our folder in its file system (file_contexts;
+# the rest of it has no labels).
+type cpt_stock_data_block_device, dev_type;
+type cpt_stock_data_file, file_type;
+# The stock root file system (system_a), mounted read-only with this one label for the
+# Bluetooth firmware (init.superbird.rc). AOSP forbids writes to context= mount types.
+type cpt_stock_root_file, fs_type, contextmount_type;

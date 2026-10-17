@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- PlayThing: the car needs A2DP source and AVRCP target. HFP stays on,
+     because some cars connect only to devices with HFP. PAN gives internet from
+     the iPhone's Personal Hotspot over Bluetooth (DiPlay updates,
+     docs/bluetooth-audio.md). The other profiles use RAM and have no use here. -->
+<resources>
+    <bool name="profile_supported_hdp">false</bool>
+    <bool name="profile_supported_hid_host">false</bool>
+    <bool name="profile_supported_hid_device">false</bool>
+    <bool name="profile_supported_opp">false</bool>
+    <bool name="profile_supported_pan">true</bool>
+    <bool name="profile_supported_pbap">false</bool>
+    <bool name="profile_supported_map">false</bool>
+</resources>

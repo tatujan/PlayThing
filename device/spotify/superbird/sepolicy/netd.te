@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# netd and wificond ask the kernel to load network modules that this kernel does not have.
+dontaudit netd kernel:system module_request;
+dontaudit netd self:capability sys_module;

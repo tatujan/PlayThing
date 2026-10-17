@@ -1,0 +1,51 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] avcdec: decode-order output with a property
+
+The iPhone CarPlay stream has no B-frames (its SPS signals
+max_num_reorder_frames 0), so decode order is display order. Display-order
+output can hold decoded frames in the DPB before it releases them, which adds
+latency to every frame and shows the last frame of a movement late. With
+persist.plaything.avc_decode_order=1, the soft AVC decoder uses libavc's
+decode-order output (IVD_DECODE_FRAME_OUT). Without the property, nothing
+changes.
+
+---
+diff --git a/media/libstagefright/codecs/avcdec/Android.bp b/media/libstagefright/codecs/avcdec/Android.bp
+index cf50a04..f351d39 100644
+--- a/media/libstagefright/codecs/avcdec/Android.bp
++++ b/media/libstagefright/codecs/avcdec/Android.bp
+@@ -27,6 +27,7 @@ cc_library_shared {
+         "libstagefright_foundation",
+         "libutils",
+         "liblog",
++        "libcutils",
+     ],
+ 
+     sanitize: {
+diff --git a/media/libstagefright/codecs/avcdec/SoftAVCDec.cpp b/media/libstagefright/codecs/avcdec/SoftAVCDec.cpp
+index 3924fc2..30fe24b 100644
+--- a/media/libstagefright/codecs/avcdec/SoftAVCDec.cpp
++++ b/media/libstagefright/codecs/avcdec/SoftAVCDec.cpp
+@@ -17,6 +17,7 @@
+ //#define LOG_NDEBUG 0
+ #define LOG_TAG "SoftAVCDec"
+ #include <utils/Log.h>
++#include <cutils/properties.h>
+ 
+ #include "ih264_typedefs.h"
+ #include "iv.h"
+@@ -149,7 +150,13 @@ status_t SoftAVC::setParams(size_t stride) {
+     s_ctl_ip.u4_disp_wd = (UWORD32)stride;
+     s_ctl_ip.e_frm_skip_mode = IVD_SKIP_NONE;
+ 
+-    s_ctl_ip.e_frm_out_mode = IVD_DISPLAY_FRAME_OUT;
++    // PlayThing: the iPhone CarPlay stream has no B-frames (max_num_reorder_frames 0),
++    // so decode order is display order. Display-order output can hold frames in the
++    // DPB, which adds latency. persist.plaything.avc_decode_order=1 selects
++    // decode-order output: each frame comes out as soon as it is decoded.
++    s_ctl_ip.e_frm_out_mode =
++            property_get_bool("persist.plaything.avc_decode_order", false)
++            ? IVD_DECODE_FRAME_OUT : IVD_DISPLAY_FRAME_OUT;
+     s_ctl_ip.e_vid_dec_mode = IVD_DECODE_FRAME;
+     s_ctl_ip.e_cmd = IVD_CMD_VIDEO_CTL;
+     s_ctl_ip.e_sub_cmd = IVD_CMD_CTL_SETPARAMS;

@@ -1,0 +1,20 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Firmware path for the decoder modules (init.superbird.rc, on post-fs).
+allow init sysfs_cpt_firmware_path:file w_file_perms;
+# The /mnt/sdcard symlink of init.rc: /mnt is tmpfs.
+allow init tmpfs:lnk_file create_file_perms;
+# Kernel modules from /vendor/lib/modules (mali.ko and the decoder modules, init.superbird.rc,
+# on post-fs). They keep vendor_file: the AOSP neverallow allows module loading only from
+# system_file, vendor_file, or rootfs.
+allow init vendor_file:system module_load;
+# insmod needs CAP_SYS_MODULE. AOSP gives it only to modprobe; with SELinux enforcing, every
+# insmod of init.superbird.rc fails with EPERM, so mali.ko is missing and SurfaceFlinger
+# crashes. The early denial is not in the kernel log.
+allow init self:global_capability_class_set sys_module;
+# The wake lock of init.superbird.rc (on boot): the Car Thing must not suspend.
+allow init sysfs_wake_lock:file w_file_perms;
+# Writing /sys/power/wake_lock needs CAP_BLOCK_SUSPEND.
+allow init self:global_capability2_class_set block_suspend;
+# data-setup.sh: init mounts the stock data file system on /mnt/vendor/cpt-stock.
+allow init mnt_vendor_file:dir mounton;

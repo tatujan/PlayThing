@@ -1,0 +1,57 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] settings: TV UI mode action bar, and no search bar without Settings Intelligence
+
+1. The PlayThing image declares android.hardware.type.television, so that
+   DiPlay drives the CarPlay knob from DPAD keys. In that UI mode the Settings
+   window has no action bar, and SettingsActivity.onCreate threw a
+   NullPointerException at findViewById(R.id.action_bar).setVisibility(View.GONE):
+   the main Settings screen did not open. Skip the call when the view
+   is missing.
+2. The search bar on the main page starts the search UI in Settings Intelligence
+   (com.android.settings.intelligence), which the image does not have, so a tap
+   crashed Settings with ActivityNotFoundException. Hide the
+   search bar when no activity handles the search intent.
+
+Both changes are in one patch: as two patches with neighbouring lines, the
+already-applied check of scripts/aosp-patches.sh failed for the first one.
+
+---
+diff --git a/src/com/android/settings/SettingsActivity.java b/src/com/android/settings/SettingsActivity.java
+index 00cf069..d263636 100644
+--- a/src/com/android/settings/SettingsActivity.java
++++ b/src/com/android/settings/SettingsActivity.java
+@@ -65,6 +65,7 @@ import com.android.settings.dashboard.DashboardFeatureProvider;
+ import com.android.settings.dashboard.DashboardSummary;
+ import com.android.settings.overlay.FeatureFactory;
+ import com.android.settings.search.DeviceIndexFeatureProvider;
++import com.android.settings.search.SearchFeatureProvider;
+ import com.android.settings.wfd.WifiDisplaySettings;
+ import com.android.settings.widget.SwitchBar;
+ import com.android.settingslib.core.instrumentation.Instrumentable;
+@@ -299,9 +300,23 @@ public class SettingsActivity extends SettingsDrawerActivity
+ 
+         final boolean deviceProvisioned = Utils.isDeviceProvisioned(this);
+         if (mIsShowingDashboard) {
+-            findViewById(R.id.search_bar).setVisibility(
+-                    deviceProvisioned ? View.VISIBLE : View.INVISIBLE);
+-            findViewById(R.id.action_bar).setVisibility(View.GONE);
++            // PlayThing: the search UI is in Settings Intelligence, which the image does not
++            // have, so a tap on the search bar crashed Settings (ActivityNotFoundException). Hide
++            // the search bar when no activity handles the search intent.
++            final SearchFeatureProvider searchProvider =
++                    FeatureFactory.getFactory(this).getSearchFeatureProvider();
++            final boolean searchAvailable = getPackageManager().resolveActivity(
++                    new Intent(SearchFeatureProvider.SEARCH_UI_INTENT)
++                            .setPackage(searchProvider.getSettingsIntelligencePkgName()),
++                    0) != null;
++            findViewById(R.id.search_bar).setVisibility(!searchAvailable ? View.GONE
++                    : deviceProvisioned ? View.VISIBLE : View.INVISIBLE);
++            // PlayThing: in the television UI mode (the knob feature) the window has no
++            // action bar, and this line threw a NullPointerException.
++            final View actionBar = findViewById(R.id.action_bar);
++            if (actionBar != null) {
++                actionBar.setVisibility(View.GONE);
++            }
+             final Toolbar toolbar = findViewById(R.id.search_action_bar);
+             FeatureFactory.getFactory(this).getSearchFeatureProvider()
+                     .initSearchToolbar(this, toolbar);

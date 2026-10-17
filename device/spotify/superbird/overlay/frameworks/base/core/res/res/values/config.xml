@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- PlayThing framework overlay. -->
+<resources>
+    <!-- Appliance with DiPlay as its only app: grant USB device access without a dialog.
+         DiPlay needs the iPhone over USB host. Without this, the dialog comes from SystemUI. -->
+    <bool name="config_disableUsbPermissionDialogs">true</bool>
+
+    <!-- Automatic brightness from the TMD2772 light sensor (sensors/sensors.c,
+         docs/display-brightness.md). The curve is the stock Spotify daemon's table
+         (sp-als-backlight: raw count below 12/25/50/250/500/1000/2000 -> aml-bl
+         235/150/120/100/75/60/51), converted: lux = count x 2.97 (the HAL's scale), and the
+         aml-bl value to Android's level through lights.c (1 -> 235, 255 -> 51; the backlight
+         PWM is inverted). Android interpolates between the points. -->
+    <bool name="config_automatic_brightness_available">true</bool>
+    <integer-array name="config_autoBrightnessLevels">
+        <item>36</item>
+        <item>74</item>
+        <item>149</item>
+        <item>743</item>
+        <item>1486</item>
+        <item>2973</item>
+    </integer-array>
+    <integer-array name="config_autoBrightnessLcdBacklightValues">
+        <item>1</item>
+        <item>118</item>
+        <item>160</item>
+        <item>187</item>
+        <item>222</item>
+        <item>243</item>
+        <item>255</item>
+    </integer-array>
+    <!-- Manual slider: level 1 is aml-bl 235, the stock night value and floor (darker
+         values flicker). Default: the stock value for a lit room
+         (150 = level 118). -->
+    <integer name="config_screenBrightnessSettingMinimum">1</integer>
+    <integer name="config_screenBrightnessSettingDefault">118</integer>
+    <integer name="config_screenBrightnessDim">1</integer>
+
+    <!-- No modem and no phone app: the AOSP list without the mobile types, as on Wi-Fi-only
+         devices. Then Settings sees a Wi-Fi-only device (SettingsLib Utils.isWifiOnly) and
+         hides "Mobile network", which opens com.android.phone and crashes Settings. Ethernet:
+         ConnectivityService adds it when the Ethernet service exists. Bluetooth tethering
+         (PAN) works without an entry. -->
+    <string-array translatable="false" name="networkAttributes">
+        <item>"wifi,1,1,1,-1,true"</item>
+        <item>"wifi_p2p,13,1,0,-1,true"</item>
+    </string-array>
+</resources>

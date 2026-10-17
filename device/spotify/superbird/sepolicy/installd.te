@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# installd asks each mounted file system for its quotas (storage statistics). The read-only
+# stock root file system (cpt_stock_root_file, init.superbird.rc) has none.
+dontaudit installd cpt_stock_root_file:filesystem quotaget;

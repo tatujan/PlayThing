@@ -1,0 +1,17 @@
+// Copyright (C) 2026 The PlayThing Authors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// PlayThing primary audio HAL: stub output, PDM microphone input (audio_hw.c).
+// ro.hardware is "superbird", so this module is loaded before audio.primary.default.
+cc_library_shared {
+    name: "audio.primary.superbird",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: ["audio_hw.c"],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libtinyalsa",
+    ],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
+}

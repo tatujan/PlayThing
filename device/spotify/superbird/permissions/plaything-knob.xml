@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- DiPlay drives the CarPlay knob from the DPAD, ENTER, and BACK keys only on a TV device
+     (AndroidTvInputMode: the television feature, or no touchscreen). With this feature,
+     DiPlay also tells the iPhone that the knob is the primary input; touch still works.
+     Side effect: the Android UI mode is TELEVISION. -->
+<permissions>
+    <feature name="android.hardware.type.television" />
+</permissions>

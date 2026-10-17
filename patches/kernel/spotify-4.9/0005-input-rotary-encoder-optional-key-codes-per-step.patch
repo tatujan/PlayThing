@@ -1,0 +1,58 @@
+From: PlayThing builder <builder@localhost>
+Date: Tue, 13 Oct 2026 18:30:00 +0000
+Subject: [PATCH] input: rotary-encoder: optional key codes per step
+
+The Car Thing knob is a rotary encoder in relative-axis mode (REL_HWHEEL).
+Android does not turn wheel events into keys, and DiPlay drives the CarPlay
+knob from DPAD keys. With the DT property "linux,key-codes" = <ccw cw>, the
+driver sends one key press and release per step instead of axis events.
+Without the property, nothing changes.
+---
+--- a/drivers/input/misc/rotary_encoder.c
++++ b/drivers/input/misc/rotary_encoder.c
+@@ -44,6 +44,9 @@
+ 	u32 axis;
+ 	bool relative_axis;
+ 	bool rollover;
++	/* "linux,key-codes" <ccw cw>: one key press per step instead of axis events. */
++	bool use_keys;
++	u32 keycodes[2];
+ 	enum rotary_encoder_encoding encoding;
+ 
+ 	unsigned int pos;
+@@ -89,7 +92,13 @@
+ 
+ 	encoder->t_last_event = t_event;
+ 	
+-	if (encoder->relative_axis) {
++	if (encoder->use_keys) {
++		unsigned int code = encoder->keycodes[encoder->dir < 0 ? 0 : 1];
++
++		input_report_key(encoder->input, code, 1);
++		input_sync(encoder->input);
++		input_report_key(encoder->input, code, 0);
++	} else if (encoder->relative_axis) {
+ 		input_report_rel(encoder->input,
+ 				 encoder->axis, encoder->dir);
+ 	} else {
+@@ -259,6 +268,8 @@
+ 	device_property_read_u32(dev, "linux,axis", &encoder->axis);
+ 	encoder->relative_axis =
+ 		device_property_read_bool(dev, "rotary-encoder,relative-axis");
++	encoder->use_keys = !device_property_read_u32_array(dev, "linux,key-codes",
++							     encoder->keycodes, 2);
+ 
+ 	encoder->gpios = devm_gpiod_get_array(dev, NULL, GPIOD_IN);
+ 	if (IS_ERR(encoder->gpios)) {
+@@ -280,7 +291,10 @@
+ 	input->id.bustype = BUS_HOST;
+ 	input->dev.parent = dev;
+ 
+-	if (encoder->relative_axis)
++	if (encoder->use_keys) {
++		input_set_capability(input, EV_KEY, encoder->keycodes[0]);
++		input_set_capability(input, EV_KEY, encoder->keycodes[1]);
++	} else if (encoder->relative_axis)
+ 		input_set_capability(input, EV_REL, encoder->axis);
+ 	else
+ 		input_set_abs_params(input,

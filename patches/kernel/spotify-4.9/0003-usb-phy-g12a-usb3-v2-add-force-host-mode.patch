@@ -1,0 +1,49 @@
+From: PlayThing builder <builder@localhost>
+Date: Mon, 12 Oct 2026 22:00:00 +0000
+Subject: [PATCH] usb: phy: g12a usb3 v2: add force-host-mode
+
+The Car Thing has one USB-C port without a CC controller, so nothing pulls
+the ID pin low, and the PHY mux stays in device mode (DWC2). For the wired
+phone link, a powered USB-C dongle supplies the Car Thing, and the Car Thing
+must be the USB host. With the DT property force-host-mode, the PHY init
+connects USB2 port 0 to the xHCI host (DWC3) as the ID-pin path does, but
+without VBUS. Use it with otg = <0> (no ID interrupt) and portnum = <0>.
+---
+diff --git a/drivers/amlogic/usb/phy/phy-aml-new-usb3-v2.c b/drivers/amlogic/usb/phy/phy-aml-new-usb3-v2.c
+index 3c97500bb819..75017b1ad677 100644
+--- a/drivers/amlogic/usb/phy/phy-aml-new-usb3-v2.c
++++ b/drivers/amlogic/usb/phy/phy-aml-new-usb3-v2.c
+@@ -42,6 +42,8 @@ struct usb_aml_regs_v2 usb_new_aml_regs_v2;
+ struct amlogic_usb_v2	*g_phy_v2;
+ 
+ static void set_mode(unsigned long reg_addr, int mode);
++/* DT "force-host-mode": connect USB2 port 0 to the xHCI host without VBUS. */
++static bool force_host_mode;
+ BLOCKING_NOTIFIER_HEAD(aml_new_usb_v2_notifier_list);
+ 
+ int aml_new_usb_v2_register_notifier(struct notifier_block *nb)
+@@ -376,6 +378,16 @@ static int amlogic_new_usb3_init(struct usb_phy *x)
+ 		writel(p3_r1.d32, phy->phy3_cfg_r1);
+ 	}
+ 
++	if (force_host_mode) {
++		/* The same as the ID-pin host switch in amlogic_gxl_work(), but VBUS
++		 * stays off: a powered USB-C dongle supplies the device, and nothing
++		 * pulls the ID pin low on its USB-C port.
++		 */
++		aml_new_usb_notifier_call(0);
++		set_mode((unsigned long)phy->usb2_phy_cfg, HOST_MODE);
++		dev_info(phy->dev, "forced USB host mode on port 0, VBUS not driven\n");
++	}
++
+ 	return 0;
+ }
+ 
+@@ -561,6 +573,7 @@ static int amlogic_new_usb3_v2_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	force_host_mode = of_property_read_bool(dev->of_node, "force-host-mode");
+ 	prop = of_get_property(dev->of_node, "otg", NULL);
+ 	if (prop)
+ 		otg = of_read_ulong(prop, 1);

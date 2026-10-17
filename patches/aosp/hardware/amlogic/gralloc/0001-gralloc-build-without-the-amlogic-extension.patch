@@ -1,0 +1,100 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] gralloc: build without the Amlogic extension
+
+The files in amlogic/ have an Amlogic license that does not allow
+redistribution, so the gralloc must not need them. Without
+GRALLOC_AML_EXTEND, Arm's code selects the ION heap. Arm's rule puts
+GRALLOC_USAGE_HW_COMPOSER buffers in the DMA (CMA) heap, but SurfaceFlinger
+gives every app buffer that usage, and the Car Thing's CMA pool is small.
+Thus only GRALLOC_USAGE_HW_FB buffers (the frame buffer target, which the
+OSD scans out) use the DMA heap, as with the Amlogic extension. The Amlogic
+OMX usages are not used on the Car Thing. The log line for each allocation
+("framebuffer hal alread move to hwcomposer") is removed.
+
+---
+diff --git a/Android.mk b/Android.mk
+index 5a3b8b5..cec89f5 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -128,8 +128,7 @@ LOCAL_C_INCLUDES := $(MALI_LOCAL_PATH) $(MALI_DDK_INCLUDES)
+ # General compilation flags
+ LOCAL_CFLAGS := -Werror -DLOG_TAG=\"gralloc\" -DPLATFORM_SDK_VERSION=$(PLATFORM_SDK_VERSION)
+ 
+-# Amlogic extend
+-LOCAL_CFLAGS += -DGRALLOC_AML_EXTEND
++# PlayThing: no Amlogic extension (its files in amlogic/ may not be redistributed).
+ BOARD_RESOLUTION_RATIO ?= 1080
+ LOCAL_CFLAGS += -DBOARD_RESOLUTION_RATIO=$(BOARD_RESOLUTION_RATIO)
+ $(warning "the value of BOARD_RESOLUTION_RATIO is $(BOARD_RESOLUTION_RATIO)")
+@@ -167,7 +166,6 @@ LOCAL_CFLAGS += -DGRALLOC_ARM_NO_EXTERNAL_AFBC=$(GRALLOC_ARM_NO_EXTERNAL_AFBC)
+ LOCAL_CFLAGS += -DGRALLOC_LIBRARY_BUILD=1
+ 
+ LOCAL_SHARED_LIBRARIES := libhardware liblog libcutils libGLESv1_CM libsync libutils
+-LOCAL_STATIC_LIBRARIES := libamgralloc_internal_static
+ 
+ LOCAL_PRELINK_MODULE := false
+ LOCAL_MODULE_RELATIVE_PATH := hw
+@@ -218,5 +216,3 @@ LOCAL_MODULE_OWNER := arm
+ 
+ include $(BUILD_SHARED_LIBRARY)
+ 
+-# Amlogic usage & flags api.
+-include $(LOCAL_PATH)/amlogic/Android.mk
+diff --git a/mali_gralloc_bufferdescriptor.cpp b/mali_gralloc_bufferdescriptor.cpp
+index 33c6b5e..1ce2a06 100755
+--- a/mali_gralloc_bufferdescriptor.cpp
++++ b/mali_gralloc_bufferdescriptor.cpp
+@@ -33,7 +33,9 @@
+ #include "mali_gralloc_ion.h"
+ #include "mali_gralloc_reference.h"
+ #include "ion_wrapper.h"
++#ifdef GRALLOC_AML_EXTEND
+ #include "amlogic/am_gralloc_internal.h"
++#endif
+ 
+ #if GRALLOC_USE_GRALLOC1_API == 1
+ 
+@@ -248,12 +250,14 @@ int mali_gralloc_validate_buffer_size(buffer_handle_t buffer, gralloc1_buffer_de
+ 			AERR("Bad stride!Not the same with allocated buffer " );
+ 			return GRALLOC1_ERROR_BAD_VALUE;
+ 		}
++#ifdef GRALLOC_AML_EXTEND
+ 		if (am_gralloc_is_omx_metadata_extend_usage(hnd->usage))
+ 		{
+ 			ALOGW("omx buffer: descriptorInfo->width:%d descriptorInfo->height:%d", descriptorInfo->width, descriptorInfo->height);
+ 			return GRALLOC1_ERROR_NONE;
+ 		}
+ 		else
++#endif
+ 		{
+ 			bufferSize = hnd->byte_stride / stride * descriptorInfo->width * descriptorInfo->height;
+ 		}
+diff --git a/mali_gralloc_ion.cpp b/mali_gralloc_ion.cpp
+index c3ca7a7..9badb54 100644
+--- a/mali_gralloc_ion.cpp
++++ b/mali_gralloc_ion.cpp
+@@ -218,7 +218,10 @@ unsigned int pick_ion_heap(uint64_t usage)
+ 		heap_type = ION_HEAP_TYPE_COMPOUND_PAGE;
+ 	}
+ #elif GRALLOC_USE_ION_DMA_HEAP
+-	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & (GRALLOC_USAGE_HW_FB | GRALLOC_USAGE_HW_COMPOSER)))
++	/* PlayThing: only the frame buffer target must be contiguous (the OSD scans it out).
++	 * SurfaceFlinger gives every app buffer GRALLOC_USAGE_HW_COMPOSER, and the CMA pool is
++	 * small, so app buffers stay in the system heap (as with the Amlogic extension). */
++	else if (!(usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & GRALLOC_USAGE_HW_FB))
+ 	{
+ 		heap_type = ION_HEAP_TYPE_DMA;
+ 	}
+diff --git a/mali_gralloc_public_interface.cpp b/mali_gralloc_public_interface.cpp
+index e3d7e2c..a8c89a9 100644
+--- a/mali_gralloc_public_interface.cpp
++++ b/mali_gralloc_public_interface.cpp
+@@ -226,8 +226,6 @@ static int32_t mali_gralloc_allocate(gralloc1_device_t *device, uint32_t numDesc
+ 		}
+ 	}
+ 	else
+-#else
+-        AINF("framebuffer hal alread move to hwcomposer\n");
+ #endif
+ 	{
+ 		if (mali_gralloc_buffer_allocate(m, (gralloc_buffer_descriptor_t *)descriptors, numDescriptors, outBuffers,

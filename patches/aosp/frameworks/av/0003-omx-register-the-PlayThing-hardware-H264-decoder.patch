@@ -1,0 +1,23 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] omx: register the PlayThing hardware H.264 decoder
+
+Adds "OMX.google.cpt.h264.decoder" to the soft codec table. The component is
+in device/spotify/superbird/codecs/cpth264dec (libstagefright_soft_cpth264dec):
+it decodes H.264 on the Amlogic hardware decoder through V4L2 (/dev/video26)
+and gives I420 frames like OMX.google.h264.decoder. The "OMX.google." prefix
+keeps the software renderer path in ACodec and MediaCodec.
+
+---
+diff --git a/media/libstagefright/omx/SoftOMXPlugin.cpp b/media/libstagefright/omx/SoftOMXPlugin.cpp
+index 1f3e8c1..5b841b9 100644
+--- a/media/libstagefright/omx/SoftOMXPlugin.cpp
++++ b/media/libstagefright/omx/SoftOMXPlugin.cpp
+@@ -46,6 +46,8 @@ static const struct {
+     { "OMX.google.amrwb.decoder", "amrdec", "audio_decoder.amrwb" },
+     { "OMX.google.amrwb.encoder", "amrwbenc", "audio_encoder.amrwb" },
+     { "OMX.google.h264.decoder", "avcdec", "video_decoder.avc" },
++    // PlayThing: H.264 on the Amlogic hardware decoder (device/spotify/superbird).
++    { "OMX.google.cpt.h264.decoder", "cpth264dec", "video_decoder.avc" },
+     { "OMX.google.h264.encoder", "avcenc", "video_encoder.avc" },
+     { "OMX.google.hevc.decoder", "hevcdec", "video_decoder.hevc" },
+     { "OMX.google.g711.alaw.decoder", "g711dec", "audio_decoder.g711alaw" },

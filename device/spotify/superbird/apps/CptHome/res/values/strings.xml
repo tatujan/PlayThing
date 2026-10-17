@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<resources>
+    <string name="app_name">PlayThing</string>
+    <string name="carplay">CarPlay</string>
+    <string name="bluetooth">Bluetooth</string>
+    <string name="settings">Settings</string>
+    <!-- Toast while an app opens (design: "Opening {App}…") -->
+    <string name="opening">Opening %1$s…</string>
+    <!-- Bluetooth status, top right -->
+    <string name="bt_off">Off</string>
+    <string name="bt_none">Not connected</string>
+</resources>

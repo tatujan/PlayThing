@@ -1,0 +1,26 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] zygote: CAP_NET_ADMIN for Bluetooth without paranoid network
+
+Bluetooth PAN (the Car Thing as a client of the iPhone's Personal Hotspot)
+failed: the Bluetooth stack could not create the bt-pan TAP interface, so
+IpClient found no interface ("Failed to find InterfaceParams for bt-pan").
+TUNSETIFF for a new device needs CAP_NET_ADMIN. Android 9 gives it to the
+Bluetooth process only through CONFIG_ANDROID_PARANOID_NETWORK (the net_admin
+group), and the Car Thing kernel has that option off. Grant CAP_NET_ADMIN to
+the Bluetooth process directly. SELinux already allows net_admin for the
+bluetooth domain.
+
+---
+--- a/core/jni/com_android_internal_os_Zygote.cpp
++++ b/core/jni/com_android_internal_os_Zygote.cpp
+@@ -826,6 +826,10 @@
+       capabilities |= (1LL << CAP_NET_RAW);
+       capabilities |= (1LL << CAP_NET_BIND_SERVICE);
+       capabilities |= (1LL << CAP_SYS_NICE);
++      // PlayThing: the kernel has no CONFIG_ANDROID_PARANOID_NETWORK, which gives
++      // CAP_NET_ADMIN to the net_admin group (Bluetooth is in it). The Bluetooth stack needs it
++      // to create and bring up the bt-pan TAP interface for PAN (TUNSETIFF, SIOCSIFFLAGS).
++      capabilities |= (1LL << CAP_NET_ADMIN);
+     }
+ 
+     // Grant CAP_BLOCK_SUSPEND to processes that belong to GID "wakelock"

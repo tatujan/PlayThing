@@ -1,0 +1,64 @@
+From: PlayThing builder <builder@localhost>
+Date: Mon, 12 Oct 2026 21:10:00 +0000
+Subject: [PATCH] input: tlsc6x: support the standard touchscreen axis properties
+
+The Car Thing panel and touch controller are portrait-native (480 x 800).
+Android 9 rotates the display through SurfaceFlinger (configstore), but not
+the touch input. Add touchscreen-inverted-x, touchscreen-inverted-y, and
+touchscreen-swapped-x-y (invert first, then swap, as
+touchscreen_apply_prop_to_x_y() does). For the landscape Car Thing, set
+inverted-x and swapped-x-y: X = raw y, Y = TP_MAX_X - raw x.
+---
+diff --git a/drivers/amlogic/input/touchscreen/tlsc6x/tlsc6x_main.c b/drivers/amlogic/input/touchscreen/tlsc6x/tlsc6x_main.c
+index a0737da4860f..d129b6920b99 100644
+--- a/drivers/amlogic/input/touchscreen/tlsc6x/tlsc6x_main.c
++++ b/drivers/amlogic/input/touchscreen/tlsc6x/tlsc6x_main.c
+@@ -68,6 +68,12 @@ struct tlsc6x_platform_data{
+ 	u32 virtualkeys[12];
+ 	u32 TP_MAX_X;
+ 	u32 TP_MAX_Y;
++	/* Standard touchscreen properties, applied as touchscreen_apply_prop_to_x_y()
++	 * does: invert first, then swap.
++	 */
++	bool invert_x;
++	bool invert_y;
++	bool swap_xy;
+ };
+ 
+ static struct workqueue_struct *tlsc6x_wq;
+@@ -494,6 +500,12 @@ static int tlsc6x_update_data(struct tlsc6x_data *data)
+             #else
+                 input_report_abs(data->input_dev, ABS_MT_TRACKING_ID, buf[6 * i + 5] >> 4);
+             #endif
++                if (data->platform_data->invert_x)
++                    x = data->platform_data->TP_MAX_X - x;
++                if (data->platform_data->invert_y)
++                    y = data->platform_data->TP_MAX_Y - y;
++                if (data->platform_data->swap_xy)
++                    swap(x, y);
+                 input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
+                 input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
+                 input_report_abs(data->input_dev, ABS_MT_PRESSURE, ft_pressure);
+@@ -908,6 +920,9 @@ static struct tlsc6x_platform_data *tlsc6x_parse_dt(struct device *dev)
+         TLSC_ERROR("fail to get TP_MAX_Y\n");
+         goto fail;
+     }
++    pdata->invert_x = of_property_read_bool(np, "touchscreen-inverted-x");
++    pdata->invert_y = of_property_read_bool(np, "touchscreen-inverted-y");
++    pdata->swap_xy = of_property_read_bool(np, "touchscreen-swapped-x-y");
+ 
+     return pdata;
+ fail:
+@@ -1446,8 +1461,10 @@ static int tlsc6x_probe(struct i2c_client *client, const struct i2c_device_id *i
+     #if MULTI_PROTOCOL_TYPE_B
+     input_mt_init_slots(input_dev, TS_MAX_FINGER,0);
+     #endif
+-    input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
+-    input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
++    input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0,
++        pdata->swap_xy ? pdata->TP_MAX_Y : pdata->TP_MAX_X, 0, 0);
++    input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0,
++        pdata->swap_xy ? pdata->TP_MAX_X : pdata->TP_MAX_Y, 0, 0);
+     input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
+     input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
+     input_set_abs_params(input_dev,ABS_MT_PRESSURE, 0, 127, 0, 0);

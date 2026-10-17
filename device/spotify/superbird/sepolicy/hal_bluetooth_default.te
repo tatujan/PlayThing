@@ -1,0 +1,7 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# libbt-vendor reads the Broadcom patch file from the stock root file system
+# (/mnt/vendor/stock-root/lib/firmware/brcm, init.superbird.rc).
+allow hal_bluetooth_default mnt_vendor_file:dir search;
+allow hal_bluetooth_default cpt_stock_root_file:dir r_dir_perms;
+allow hal_bluetooth_default cpt_stock_root_file:file r_file_perms;

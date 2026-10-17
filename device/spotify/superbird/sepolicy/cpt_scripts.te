@@ -1,0 +1,71 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing boot scripts (init.superbird.rc): root shell scripts started by init with a
+# seclabel; init starts /system/bin/sh, so shell_exec is the entry point (as AOSP's blkid).
+# Not su: init may not change to su with SELinux enforcing.
+#   cpt_data_setup     data-setup.sh: checks the stock data partition and the /data image
+#   cpt_bt_setup       bt-setup.sh: Bluetooth power GPIO and address
+#   cpt_diplay_setup   diplay-setup.sh: DiPlay app-ops and settings
+# The rules come from runtime dry runs in each domain, not from boot logs: the kernel drops most audit records before logd's audit reader is ready
+# (docs/selinux.md). They run system files, so they are core domains where AOSP allows it.
+
+# cpt_data_setup is not a core domain: AOSP forbids /mnt/vendor to core domains except init.
+type cpt_data_setup, domain;
+type cpt_bt_setup, domain, coredomain;
+type cpt_diplay_setup, domain;
+
+# diplay-setup.sh must create DiPlay's settings files on a new /data, and AOSP forbids that
+# to every domain except apps and installd (neverallow app_data_file create). It stays
+# permissive (userdebug only).
+permissive cpt_diplay_setup;
+
+allow init { cpt_data_setup cpt_bt_setup cpt_diplay_setup }:process { transition noatsecure rlimitinh siginh };
+allow { cpt_data_setup cpt_bt_setup cpt_diplay_setup } shell_exec:file { entrypoint getattr map open read execute };
+
+# Both confined scripts: the script in the ramdisk, toybox, the kernel log, sysfs reads.
+allow { cpt_data_setup cpt_bt_setup } rootfs:file r_file_perms;
+allow { cpt_data_setup cpt_bt_setup } toolbox_exec:file rx_file_perms;
+allow { cpt_data_setup cpt_bt_setup } kmsg_device:chr_file w_file_perms;
+allow { cpt_data_setup cpt_bt_setup } sysfs:dir r_dir_perms;
+allow { cpt_data_setup cpt_bt_setup } sysfs:file r_file_perms;
+
+# data-setup.sh (docs/persistent-data.md). init does the mounts (AOSP lets only init and a few
+# system domains mount); the script checks, formats, and attaches the loop device.
+allow cpt_data_setup self:global_capability_class_set sys_admin;
+allow cpt_data_setup { fsck_exec e2fs_exec }:file rx_file_perms;
+# mke2fs reads the ext4 features of the kernel (as AOSP allows e2fs).
+allow cpt_data_setup sysfs_fs_ext4_features:dir search;
+allow cpt_data_setup sysfs_fs_ext4_features:file r_file_perms;
+allow cpt_data_setup proc_swaps:file r_file_perms;
+allow cpt_data_setup block_device:dir r_dir_perms;
+# e2fsck and mke2fs stat the mounted devices: is the target mounted?
+allow cpt_data_setup block_device:blk_file getattr;
+# isatty() of e2fsck on its output, /dev/kmsg
+dontaudit cpt_data_setup kmsg_device:chr_file ioctl;
+allow cpt_data_setup cpt_stock_data_block_device:blk_file rw_file_perms;
+allow cpt_data_setup swap_block_device:blk_file rw_file_perms;
+allow cpt_data_setup loop_control_device:chr_file rw_file_perms;
+allow cpt_data_setup loop_device:blk_file rw_file_perms;
+# discard_max_bytes of the loop device
+allow cpt_data_setup sysfs:file w_file_perms;
+# The stock file system has no labels (unlabeled). init labels only our folder in it.
+# losetup and umount (toybox) open each folder of the path to get the real path: / (rootfs),
+# /mnt (tmpfs), /mnt/vendor, and the root of the stock file system.
+allow cpt_data_setup { rootfs tmpfs mnt_vendor_file unlabeled }:dir r_dir_perms;
+allow cpt_data_setup cpt_stock_data_file:dir create_dir_perms;
+allow cpt_data_setup cpt_stock_data_file:file create_file_perms;
+# The fallback unmounts the stock file system (AOSP lets other domains unmount).
+allow cpt_data_setup labeledfs:filesystem unmount;
+set_prop(cpt_data_setup, cpt_data_prop)
+
+# bt-setup.sh: GPIO 493 (BT_EN) and the address from the eFuse.
+allow cpt_bt_setup sysfs:file w_file_perms;
+set_prop(cpt_bt_setup, bluetooth_prop)
+
+# The other side for the permissive diplay-setup.sh: servicemanager reads the caller's /proc
+# entry, and system_server uses the caller's stdio and calls back the result receiver.
+binder_use(cpt_diplay_setup)
+binder_call(cpt_diplay_setup, system_server)
+binder_call(system_server, cpt_diplay_setup)
+allow system_server cpt_diplay_setup:fd use;
+allow system_server cpt_diplay_setup:fifo_file rw_file_perms;

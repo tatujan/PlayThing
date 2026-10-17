@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<resources>
+    <!-- Full screen: the home screen has no status bar. The
+         wallpaper is set in code (HomeActivity), so that it is released when the home screen
+         is not visible. bg #161826 is the ground until then. -->
+    <style name="HomeTheme" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorBackground">@color/bg</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+    <color name="bg">#FF161826</color>
+</resources>

@@ -1,0 +1,11 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# TMD2772 light sensor (sensors/sensors.c): reads in_intensity0_raw, the integration time,
+# and the IIO device name.
+allow hal_sensors_default sysfs_cpt_als:dir r_dir_perms;
+allow hal_sensors_default sysfs_cpt_als:file r_file_perms;
+# The HAL finds the sensor by name in /sys/bus/iio/devices (symlinks in generic sysfs).
+allow hal_sensors_default sysfs:dir r_dir_perms;
+allow hal_sensors_default sysfs:lnk_file read;
+# The HAL also reads the name of the other IIO device (saradc, generic sysfs) and skips it.
+dontaudit hal_sensors_default sysfs:file read;

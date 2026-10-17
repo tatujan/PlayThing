@@ -1,0 +1,14 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing sysfs labels (docs/selinux.md).
+
+# Panel backlight: written by the lights HAL (lights/lights.c), a type it may use.
+genfscon sysfs /devices/platform/backlight/backlight/aml-bl u:object_r:sysfs_leds:s0
+# TMD2772 light sensor (I2C 2-0039, IIO): read by the sensors HAL (sensors/sensors.c).
+genfscon sysfs /devices/platform/soc/ffd00000.cbus/ffd1d000.i2c/i2c-2/2-0039 u:object_r:sysfs_cpt_als:s0
+# Firmware search path, written by init before the decoder modules load.
+genfscon sysfs /module/firmware_class/parameters/path u:object_r:sysfs_cpt_firmware_path:s0
+# Display information of the vout driver: the HWC reads /sys/class/display/vinfo.
+genfscon sysfs /class/display u:object_r:sysfs_cpt_display:s0
+# Frame buffer attributes: the gralloc reads /sys/class/graphics/fb0.
+genfscon sysfs /devices/platform/meson-fb/graphics u:object_r:sysfs_cpt_display:s0

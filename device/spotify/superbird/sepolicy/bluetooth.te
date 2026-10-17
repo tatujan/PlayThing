@@ -1,0 +1,7 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Bluetooth PAN: IpClient in the Bluetooth process asks for netd's binder service and logs
+# "returning null INetd instance". AOSP forbids it (neverallow, netd.te). DHCP does not need it:
+# IpClient sets the IPv4 address through NetworkManagementService; netd is only for static
+# addresses (InterfaceController.addAddress).
+dontaudit bluetooth netd_service:service_manager find;

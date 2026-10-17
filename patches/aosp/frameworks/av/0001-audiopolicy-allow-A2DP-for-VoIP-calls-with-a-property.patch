@@ -1,0 +1,59 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] audiopolicy: allow A2DP for VoIP calls with a property
+
+The Car Thing has no earpiece or speaker. DiPlay plays CarPlay call audio
+with USAGE_VOICE_COMMUNICATION in MODE_IN_COMMUNICATION, and the default
+engine does not route that to A2DP. ro.audio.a2dp_in_communication=true
+allows A2DP in MODE_IN_COMMUNICATION. MODE_IN_CALL does not change.
+
+---
+diff --git a/services/audiopolicy/enginedefault/src/Engine.cpp b/services/audiopolicy/enginedefault/src/Engine.cpp
+index 3e13e50..4224913 100644
+--- a/services/audiopolicy/enginedefault/src/Engine.cpp
++++ b/services/audiopolicy/enginedefault/src/Engine.cpp
+@@ -31,6 +31,7 @@
+ #include <policy.h>
+ #include <utils/String8.h>
+ #include <utils/Log.h>
++#include <cutils/properties.h>
+ 
+ namespace android
+ {
+@@ -40,7 +41,8 @@ namespace audio_policy
+ Engine::Engine()
+     : mManagerInterface(this),
+       mPhoneState(AUDIO_MODE_NORMAL),
+-      mApmObserver(NULL)
++      mApmObserver(NULL),
++      mA2dpInCommunication(property_get_bool("ro.audio.a2dp_in_communication", false))
+ {
+     for (int i = 0; i < AUDIO_POLICY_FORCE_USE_CNT; i++) {
+         mForceUse[i] = AUDIO_POLICY_FORCE_NONE;
+@@ -348,8 +350,11 @@ audio_devices_t Engine::getDeviceForStrategyInt(routing_strategy strategy,
+         default:    // FORCE_NONE
+             device = availableOutputDevicesType & AUDIO_DEVICE_OUT_HEARING_AID;
+             if (device) break;
+-            // when not in a phone call, phone strategy should route STREAM_VOICE_CALL to A2DP
+-            if (!isInCall() &&
++            // when not in a phone call, phone strategy should route STREAM_VOICE_CALL to A2DP.
++            // PlayThing: with ro.audio.a2dp_in_communication, VoIP calls
++            // (MODE_IN_COMMUNICATION) can also use A2DP. The device has no earpiece or speaker.
++            if ((!isInCall() ||
++                    (mA2dpInCommunication && getPhoneState() == AUDIO_MODE_IN_COMMUNICATION)) &&
+                     (mForceUse[AUDIO_POLICY_FORCE_FOR_MEDIA] != AUDIO_POLICY_FORCE_NO_BT_A2DP) &&
+                      outputs.isA2dpSupported()) {
+                 device = availableOutputDevicesType & AUDIO_DEVICE_OUT_BLUETOOTH_A2DP;
+diff --git a/services/audiopolicy/enginedefault/src/Engine.h b/services/audiopolicy/enginedefault/src/Engine.h
+index 06186c1..f80f286 100644
+--- a/services/audiopolicy/enginedefault/src/Engine.h
++++ b/services/audiopolicy/enginedefault/src/Engine.h
+@@ -137,6 +137,9 @@ private:
+     audio_policy_forced_cfg_t mForceUse[AUDIO_POLICY_FORCE_USE_CNT];
+ 
+     AudioPolicyManagerObserver *mApmObserver;
++
++    /** ro.audio.a2dp_in_communication: allow A2DP for VoIP calls (PlayThing). */
++    bool mA2dpInCommunication;
+ };
+ } // namespace audio_policy
+ } // namespace android

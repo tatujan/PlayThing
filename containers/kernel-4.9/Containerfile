@@ -1,0 +1,24 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Linux 4.9 kernel build environment for the Car Thing (Path A).
+# Build and run it as linux/arm64. On Apple silicon it runs natively, and
+# GCC builds arm64 kernels without a cross compiler.
+# Use gcc-6 (CC=gcc-6) for the Spotify 4.9 kernel. GCC 7 warnings stop the
+# Amlogic drivers, because they build with -Werror.
+FROM ubuntu:18.04@sha256:152dc042452c496007f07ca9127571cb9c29697f42acbfad72324b2bb2e43c98
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C \
+    LANG=C
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bc bison build-essential ca-certificates cpio curl device-tree-compiler flex \
+      gcc-6 git kmod libssl-dev liblz4-tool lzop python rsync u-boot-tools xz-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git config --global user.name "PlayThing builder" \
+ && git config --global user.email "builder@localhost" \
+ && git config --global color.ui false
+
+WORKDIR /kernel

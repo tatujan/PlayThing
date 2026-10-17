@@ -1,0 +1,7 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The Spotify kernel has devtmpfs: kdevtmpfs makes and removes device nodes in its own
+# instance (not /dev, which is init's tmpfs).
+allow kernel device:dir { search add_name remove_name write rmdir };
+allow kernel device:chr_file { create getattr setattr unlink };
+allow kernel self:capability mknod;

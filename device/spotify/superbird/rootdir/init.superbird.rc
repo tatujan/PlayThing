@@ -1,0 +1,138 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing device init.
+
+on init
+    # ADB over the USB gadget (configfs).
+    mkdir /dev/usb-ffs 0770 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18D1
+    write /config/usb_gadget/g1/idProduct 0x4EE7
+    write /config/usb_gadget/g1/bcdDevice 0x0223
+    write /config/usb_gadget/g1/bcdUSB 0x0200
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
+    write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+    mkdir /config/usb_gadget/g1/configs/b.1 0770 shell shell
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+    # UDC name, verified on the device (docs/hardware.md).
+    setprop sys.usb.controller "ff400000.dwc2_a"
+
+on fs
+    # /data (on post-fs, below): an image file on the stock data partition, or zram1 (RAM)
+    # if that fails (docs/persistent-data.md). zram1 needs zram.num_devices=2 on the
+    # command line.
+    write /sys/block/zram1/disksize 384M
+    mount_all /fstab.superbird
+    swapon_all /fstab.superbird
+    # Bluetooth firmware (docs/bluetooth-audio.md): Broadcom's license does not allow it in the
+    # image, so the Bluetooth HAL reads it from the unit's stock root file system (system_a,
+    # /lib/firmware/brcm). Read-only, without journal replay: nothing writes to the stock slot.
+    mkdir /mnt/vendor/stock-root 0755 root root
+    mount ext4 /dev/block/system_a /mnt/vendor/stock-root ro nosuid nodev noexec noload,context=u:object_r:cpt_stock_root_file:s0
+
+# Persistent /data (data-setup.sh). Root, because it checks and formats file systems.
+# Domain: sepolicy/cpt_scripts.te. One service for each step.
+service data-setup-stock /system/bin/sh /data-setup.sh stock
+    user root
+    group root
+    seclabel u:r:cpt_data_setup:s0
+    oneshot
+    disabled
+
+service data-setup /system/bin/sh /data-setup.sh data
+    user root
+    group root
+    seclabel u:r:cpt_data_setup:s0
+    oneshot
+    disabled
+
+service data-setup-check /system/bin/sh /data-setup.sh check
+    user root
+    group root
+    seclabel u:r:cpt_data_setup:s0
+    oneshot
+    disabled
+
+on post-fs
+    # Persistent /data (data-setup.sh), before post-fs-data needs it. In post-fs, not in fs:
+    # init.rc starts logd in its own post-fs action, which runs before this file's actions.
+    # SELinux lets only init mount (AOSP neverallow), so init mounts, and the script does the
+    # steps between the mounts. A mount whose property the script did not set does not run.
+    exec_start data-setup-stock
+    mkdir /mnt/vendor/cpt-stock 0700 root root
+    mount ext4 ${ro.plaything.stock_dev} /mnt/vendor/cpt-stock noatime nosuid nodev noexec lazytime
+    # Only our folder gets labels (cpt_stock_data_file, file_contexts); the rest of the stock
+    # file system stays unlabeled. If the mount failed, this folder is on tmpfs.
+    mkdir /mnt/vendor/cpt-stock/plaything 0700 root root
+    restorecon_recursive /mnt/vendor/cpt-stock/plaything
+    exec_start data-setup
+    mount ext4 ${ro.plaything.data_dev} /data noatime nosuid nodev
+    exec_start data-setup-check
+    mount ext4 ${ro.plaything.ram_dev} /data noatime nosuid nodev discard
+    # Mali r16p0 kernel driver (docs/graphics.md).
+    insmod /vendor/lib/modules/mali.ko
+    # Amlogic hardware video decoder (docs/video.md). Load here, before Android
+    # fragments the memory: firmware.ko needs an order-4 allocation, which fails 40 s after
+    # boot. Order by dependencies. firmware.ko loads video/video_ucode.bin
+    # through the kernel firmware path (write adds no newline; a newline breaks the path).
+    # fast_output_enable=8 (I/P only) gives each frame out at once: p50 2.9 ms instead of
+    # one frame of delay. Do not unload decoder_common: rmmod hangs in kthread_stop.
+    write /sys/module/firmware_class/parameters/path /vendor/lib/firmware
+    insmod /vendor/lib/modules/media_clock.ko
+    insmod /vendor/lib/modules/firmware.ko
+    insmod /vendor/lib/modules/decoder_common.ko
+    insmod /vendor/lib/modules/stream_input.ko
+    insmod /vendor/lib/modules/amvdec_mh264.ko fast_output_enable=8
+    insmod /vendor/lib/modules/amvdec_ports.ko
+
+on post-fs-data
+    start bt-setup
+
+# Bluetooth power-on and address (bt-setup.sh). Before the Bluetooth stack starts.
+service bt-setup /system/bin/sh /bt-setup.sh
+    user root
+    group root
+    seclabel u:r:cpt_bt_setup:s0
+    oneshot
+    disabled
+
+on property:sys.boot_completed=1
+    start diplay-setup
+
+# DiPlay app-ops and settings (diplay/diplay-setup.sh). Root, because it
+# writes DiPlay's settings file. Without a seclabel, init does not start a shell
+# script service ("no domain transition"). Domain: sepolicy/cpt_scripts.te.
+service diplay-setup /system/bin/sh /vendor/bin/diplay-setup.sh
+    user root
+    group root
+    seclabel u:r:cpt_diplay_setup:s0
+    oneshot
+    disabled
+
+on boot
+    # init.usb.rc sets sys.usb.configfs 0 in its own "on boot". This file is parsed
+    # after it, so this action runs later.
+    setprop sys.usb.configfs 1
+    # Panel backlight for the lights HAL (user system, lights/lights.c).
+    chown system system /sys/class/backlight/aml-bl/brightness
+    chmod 0664 /sys/class/backlight/aml-bl/brightness
+    # Do not write the TMD2772 integration time: the driver's store function returns 2
+    # instead of the byte count, so init writes again and again and the boot stops. The
+    # default 0.111 s is the stock value.
+
+on boot
+    # The Car Thing has no battery and the polled buttons cannot wake it, so it must
+    # not suspend while it has power. Without this wake lock, Android suspends after
+    # the screen turns off.
+    write /sys/power/wake_lock plaything
+
+# ADB over TCP (port 5555) through the Ethernet port of the host adapter: the host-mode
+# boot area has no USB ADB. adbd reads the port when it starts. Key authentication
+# (ro.adb.secure=1, /adb_keys from device.mk).
+on post-fs
+    setprop service.adb.tcp.port 5555

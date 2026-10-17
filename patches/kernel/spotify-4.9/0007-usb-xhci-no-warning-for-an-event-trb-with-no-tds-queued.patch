@@ -1,0 +1,25 @@
+From: PlayThing builder <builder@localhost>
+Date: Wed, 14 Oct 2026 12:00:00 +0000
+Subject: [PATCH] usb: xhci: no warning for an event TRB with no TDs queued
+
+DiPlay reads from the iPhone with usbfs bulk transfers and a 100 ms timeout. Each
+cancelled read gives the 4.9 xHCI driver a completion event for an empty ring, and
+it logged "WARN Event TRB for slot 4 ep 10/16 with no TDs queued?" about 300
+times per second (docs/known-issues.md). The warning filled the kernel log, so
+the cause of connection drops was lost. Later kernels log it as a debug message;
+do the same.
+---
+--- a/drivers/usb/host/xhci-ring.c
++++ b/drivers/usb/host/xhci-ring.c
+@@ -2496,7 +2496,10 @@
+ 			 */
+ 			if (!(trb_comp_code == COMP_STOP ||
+ 						trb_comp_code == COMP_STOP_INVAL)) {
+-				xhci_warn(xhci, "WARN Event TRB for slot %d ep %d with no TDs queued?\n",
++				/* PlayThing: a debug message, as in later kernels: it
++				 * came about 300 times per second for DiPlay's cancelled
++				 * bulk reads and filled the kernel log. */
++				xhci_dbg(xhci, "WARN Event TRB for slot %d ep %d with no TDs queued?\n",
+ 						TRB_TO_SLOT_ID(le32_to_cpu(event->flags)),
+ 						ep_index);
+ 				xhci_dbg(xhci, "Event TRB with TRB type ID %u\n",

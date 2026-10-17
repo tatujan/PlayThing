@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- Runtime permissions for DiPlay at first boot, so that no screen dialog is necessary.
+     The microphone is for Siri and calls. Location is for the optional location reports. -->
+<exceptions>
+    <exception package="com.shihab.diplay">
+        <permission name="android.permission.RECORD_AUDIO" fixed="false"/>
+        <permission name="android.permission.ACCESS_FINE_LOCATION" fixed="false"/>
+        <permission name="android.permission.ACCESS_COARSE_LOCATION" fixed="false"/>
+    </exception>
+</exceptions>

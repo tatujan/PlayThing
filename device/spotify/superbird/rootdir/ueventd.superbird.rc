@@ -1,0 +1,12 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing device nodes.
+/dev/mali0                0666   system     graphics
+# ION for the Mali gralloc (allocator service, user system). AOSP 9 has no default rule.
+/dev/ion                  0664   system     system
+# Bluetooth UART (BCM20703A2).
+/dev/ttyS1                0660   bluetooth  bluetooth
+
+# The V4L2 hardware H.264 decoder (amvdec_ports, docs/video.md). The OMX codec service runs as
+# user mediacodec, group camera.
+/dev/video26              0660   mediacodec camera

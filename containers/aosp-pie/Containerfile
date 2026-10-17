@@ -1,0 +1,31 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# AOSP Pie (Android 9) build environment.
+# Build and run it as linux/amd64. On Apple silicon, Rosetta runs it.
+FROM ubuntu:18.04@sha256:152dc042452c496007f07ca9127571cb9c29697f42acbfad72324b2bb2e43c98
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LC_ALL=C \
+    LANG=C \
+    USER=root
+
+# Packages from the AOSP setup guide for Ubuntu 18.04, plus Python 2 for the Pie build scripts.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      bc bison build-essential ca-certificates curl flex fontconfig g++-multilib \
+      gcc-multilib git-core gnupg lib32ncurses5-dev lib32z1-dev libc6-dev-i386 \
+      libgl1-mesa-dev libncurses5 libx11-dev libxml2-utils m4 procps python \
+      python3 rsync unzip x11proto-core-dev xsltproc zip zlib1g-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# repo launcher 2.65. A new launcher version needs a new checksum.
+ARG REPO_SHA256=1211b57b57e4122a9c546295a59b37d24068f1164d0e87bef096d5323c413e4f
+RUN curl -fsSL -o /usr/local/bin/repo https://storage.googleapis.com/git-repo-downloads/repo \
+ && echo "${REPO_SHA256}  /usr/local/bin/repo" | sha256sum -c - \
+ && chmod 0755 /usr/local/bin/repo
+
+RUN git config --global user.name "PlayThing builder" \
+ && git config --global user.email "builder@localhost" \
+ && git config --global color.ui false
+
+WORKDIR /aosp

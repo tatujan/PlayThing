@@ -1,0 +1,12 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# PlayThing fstab. Block device names are the partition names (docs/boot.md).
+# /system is system_b, the stock B slot.
+# /data is not in this file: init mounts it in post-fs with data-setup.sh
+# (docs/persistent-data.md): an ext4 image file on the stock "data" partition, or ext4 on
+# zram1 (RAM) if a check fails. Not tmpfs: PackageManager needs the "user.serial" xattr on
+# user directories, and tmpfs on Linux 4.9 has no user.* xattrs. Not in fstab, because a
+# failed /data mount in mount_all makes init reboot to recovery.
+#<src>                <mnt_point>   <type>   <mnt_flags>                                       <fs_mgr_flags>
+/dev/block/system_b   /system       ext4     ro,barrier=1                                      wait
+/dev/block/zram0      none          swap     defaults                                          zramsize=134217728

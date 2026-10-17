@@ -1,0 +1,15 @@
+// Copyright (C) 2026 The PlayThing Authors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// PlayThing lights HAL: panel backlight (lights.c).
+cc_library_shared {
+    name: "lights.superbird",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: ["lights.c"],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+    ],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
+}

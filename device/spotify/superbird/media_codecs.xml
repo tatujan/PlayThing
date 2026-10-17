@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- Codecs in order of preference. MediaCodec takes the first one that supports a format.
+     OMX.google.cpt.h264.decoder decodes H.264 on the Amlogic hardware decoder (docs/video.md,
+     device/spotify/superbird/codecs/cpth264dec). If /dev/video26 is missing
+     or persist.plaything.hw_avc=0, it does not start, and MediaCodec uses the next
+     H.264 decoder, OMX.google.h264.decoder (software). -->
+<MediaCodecs>
+    <Decoders>
+        <MediaCodec name="OMX.google.cpt.h264.decoder" type="video/avc">
+            <Limit name="size" min="16x16" max="1920x1088" />
+            <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="block-count" range="1-8160" />
+            <Limit name="blocks-per-second" range="1-489600" />
+            <Limit name="bitrate" range="1-40000000" />
+            <Feature name="adaptive-playback" />
+        </MediaCodec>
+    </Decoders>
+    <Include href="media_codecs_google_audio.xml" />
+    <Include href="media_codecs_google_video.xml" />
+</MediaCodecs>

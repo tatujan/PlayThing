@@ -1,0 +1,15 @@
+// Copyright (C) 2026 The PlayThing Authors
+// SPDX-License-Identifier: GPL-3.0-or-later
+// PlayThing sensors HAL: TMD2772 ambient light (sensors.c).
+cc_library_shared {
+    name: "sensors.superbird",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: ["sensors.c"],
+    header_libs: ["libhardware_headers"],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+    ],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-parameter"],
+}

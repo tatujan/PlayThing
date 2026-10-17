@@ -1,0 +1,26 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] ART: use the ART low-4GB allocator on x86_64 hosts
+
+Rosetta for Linux ignores MAP_32BIT. Host dex2oat then gets memory above
+4 GiB, and it aborts in dchecked_integral_cast when it makes the boot
+image. The ART allocator uses address hints, which Rosetta honors.
+arm64 and macOS hosts already use this allocator.
+
+---
+ runtime/mem_map.h | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/runtime/mem_map.h b/runtime/mem_map.h
+--- a/runtime/mem_map.h
++++ b/runtime/mem_map.h
+@@ -28,7 +28,9 @@
+
+ namespace art {
+
+-#if defined(__LP64__) && (defined(__aarch64__) || defined(__mips__) || defined(__APPLE__))
++// PlayThing: x86_64 is in this list because Rosetta for Linux ignores MAP_32BIT.
++#if defined(__LP64__) && (defined(__aarch64__) || defined(__mips__) || defined(__APPLE__) || \
++    defined(__x86_64__))
+ #define USE_ART_LOW_4G_ALLOCATOR 1
+ #else
+ #if defined(__LP64__) && !defined(__x86_64__)

@@ -1,0 +1,45 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] ViewRootImpl: knob LEFT/RIGHT as focus order with a property
+
+The Car Thing has one rotary knob, which sends DPAD_LEFT and DPAD_RIGHT. With
+directional focus search, a knob cannot reach every view: in a list, LEFT and
+RIGHT find nothing, and in two columns up/down orders depend on the direction.
+With ro.config.knob_sequential_focus=true, a LEFT or RIGHT key that the app
+does not handle moves the focus as SHIFT+TAB and TAB do (FOCUS_BACKWARD,
+FOCUS_FORWARD). Apps that handle the keys in dispatchKeyEvent (DiPlay's CarPlay
+screen, CptHome) do not change. Without the property, nothing changes.
+
+---
+--- a/core/java/android/view/ViewRootImpl.java
++++ b/core/java/android/view/ViewRootImpl.java
+@@ -165,6 +165,15 @@
+             "ro.emu.win_outset_bottom_px";
+ 
+     /**
++     * PlayThing: the device has one rotary knob, which sends DPAD_LEFT and DPAD_RIGHT. With
++     * this property, a LEFT or RIGHT key that the app does not handle moves the focus to the
++     * previous or next view in focus order (as SHIFT+TAB and TAB), so the knob reaches every
++     * focusable view. Apps that handle the keys themselves do not change.
++     */
++    private static final boolean KNOB_SEQUENTIAL_FOCUS =
++            SystemProperties.getBoolean("ro.config.knob_sequential_focus", false);
++
++    /**
+      * Maximum time we allow the user to roll the trackball enough to generate
+      * a key event, before resetting the counters.
+      */
+@@ -4930,12 +4939,12 @@
+             switch (event.getKeyCode()) {
+                 case KeyEvent.KEYCODE_DPAD_LEFT:
+                     if (event.hasNoModifiers()) {
+-                        direction = View.FOCUS_LEFT;
++                        direction = KNOB_SEQUENTIAL_FOCUS ? View.FOCUS_BACKWARD : View.FOCUS_LEFT;
+                     }
+                     break;
+                 case KeyEvent.KEYCODE_DPAD_RIGHT:
+                     if (event.hasNoModifiers()) {
+-                        direction = View.FOCUS_RIGHT;
++                        direction = KNOB_SEQUENTIAL_FOCUS ? View.FOCUS_FORWARD : View.FOCUS_RIGHT;
+                     }
+                     break;
+                 case KeyEvent.KEYCODE_DPAD_UP:
