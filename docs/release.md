@@ -52,7 +52,7 @@ Windows is not supported: the tool stops at the start. Use a Mac or a Linux comp
 |---|---|
 | `install` | first install from the stock software, or an update of PlayThing or superbird-android |
 | `restore BACKUP` | writes the stock boot command and the backed-up `system_b` back |
-| `check` | reads the partition table, the env, and the eMMC size; writes nothing |
+| `check` | shows the partition table (each partition with offset and size), the env, and the eMMC size; writes nothing |
 | `prepare` | only makes the finished image (`work/system.raw`); no device |
 
 Before its first run, the tool makes a Python environment (`.venv`: pyusb and pyamlboot at
@@ -68,18 +68,29 @@ place, in a log one line for each 10 %) and end with a summary line.
    (preset 4, after the first install).
 4. **Check:** it reads the partition table (MPT at 36 MiB) and the U-Boot env (116 MiB, 64 KiB,
    CRC checked). It stops if the stock software is not in slot A (`active_slot`), if the boot
-   command is neither the stock one nor the one that the tool writes, or if the eMMC has a GPT (another firmware). It
-   shows what it found and asks before it writes (first install and update).
+   command is neither the stock one nor the one that the tool writes, or if the eMMC has a GPT
+   (another firmware). It shows what it found and asks before it writes (first install and
+   update).
 5. **First install only:** a backup to `backups/<time>/` (`env.txt`, the env region,
    `system_b`, and by default the full eMMC user area, with `SHA256SUMS`; about 6 minutes,
-   3.7 GB), then the env change (`docs/boot.md`), which it reads back and checks. An update
-   skips this step (`--backup` backs up `system_b` first).
-6. **Write:** the writes need the stock partition table, so after a mask-ROM entry the tool asks
-   for a new connection with preset 4, and checks that `system_b` is at `0x3120b000` with
-   `0x2040b000` bytes. It writes `system.raw` at the start of `system_b`, then `boot-area.img`
+   3.7 GB), then the env change (`docs/boot.md`), which it reads back and checks. If the
+   partition table is not yet trusted (see below), the tool first adds only the preset-4 burn
+   mode, asks for a new connection, checks the table, and then changes the boot command. An
+   update skips this step (`--backup` backs up `system_b` first).
+6. **Write:** if the table is not yet trusted, the tool first asks for a new connection with
+   preset 4. It writes `system.raw` at the start of `system_b`, then `boot-area.img`
    at `+0x1e40b000`, in 16 MiB blocks: read, skip if the same, write, read back, compare. The
    boot area is last: on a first install, the boot falls back to the stock software until it is
    complete.
+
+**Partition table check.** The tool writes `system_b` only when the partition table of the Car
+Thing's **own** U-Boot has `system_b` at `0x3120b000` with `0x2040b000` bytes (`docs/boot.md`,
+"Partition tables": with or without `fip_a`/`fip_b`). A table without `fip_a`/`fip_b` always
+comes from the Car Thing's own (older) U-Boot, so the tool trusts it at once. A table with
+`fip_a`/`fip_b` can come from superbird-tool's U-Boot in RAM (after a mask-ROM entry, or from an
+earlier run without a power cycle), so the tool trusts it only after a new connection: the Car
+Thing must be off the USB bus for 1 second, and then come back in burn mode with preset 4. Any
+other place of `system_b` stops the tool before the boot command changes.
 
 If the tool stops or is interrupted, it says what it wrote and how to continue: after the env
 change or during a write, the same command again finishes the work (it skips the blocks that are

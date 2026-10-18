@@ -34,6 +34,11 @@ CarPlay calls work over A2DP with the built-in microphones, but:
   but only the ST7701S panel is tested.
 - The stock software must be in slot A; `flash.py` refuses a unit whose stock software runs from
   slot B.
+- I tested PlayThing only on a Car Thing with the older Spotify U-Boot (`v1.0-57`). Car Things
+  with the newer U-Boot (`v1.0-74`, with `fip_a`/`fip_b` in the partition table) have the same
+  places for the partitions that PlayThing uses, and the same device-tree nodes; `flash.py`
+  supports them since `0.1.0-beta.2`, but they are not tested yet. Version `0.1.0-beta` of the
+  tool stopped on them ("the partition table is still the superbird-tool one").
 
 ## Logs
 

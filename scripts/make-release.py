@@ -138,10 +138,11 @@ shows its steps, and a numbered header and a progress line (percent, time left) 
 4. **Check:** it reads the partition table, the slot, and the boot command, shows what it
    found, and asks before it writes anything.
 5. **First install only:** a backup of the U-Boot env, `system_b`, and the full eMMC (about 6
-   minutes, 3.7 GB) to `backups/` (keep that folder), then the new boot command.
-6. **Write:** the tool asks you to disconnect the Car Thing and connect it again in USB burn
-   mode (preset 4), and writes the image to `system_b` (the stock software does not use it).
-   It reads every block back.
+   minutes, 3.7 GB) to `backups/` (keep that folder). Then the tool asks you to disconnect the
+   Car Thing and connect it again in USB burn mode (preset 4): it checks the partition table of
+   the Car Thing's own U-Boot, and only then changes the boot command.
+6. **Write:** the image goes to `system_b` (the stock software does not use it). The tool reads
+   every block back.
 
 When it says DONE, disconnect the Car Thing and connect it to the hub with the charger, without
 a button. {title} starts in about 1 minute (the first start takes longer). From now on, the
@@ -152,7 +153,8 @@ buttons work as "Buttons and USB modes" shows.
 Put the Car Thing in USB burn mode (hold preset 4 while you connect it directly to the
 computer, "Buttons and USB modes"), and run `python3 flash.py install`. The tool finds the
 earlier install, asks, and writes only the blocks that changed (about 3 minutes). Your data
-stays.
+stays. On a Car Thing with the newer Spotify U-Boot, the tool first asks you to connect it once
+more with preset 4, to check its partition table.
 
 PlayThing and superbird-android use the same `/data`. When you change from one to the other,
 Android deletes the data of the apps that the new image does not have (for example, DiPlay's

@@ -76,25 +76,40 @@ storeargs=<stock value> if gpio input GPIOA_3; then run update; fi;
 
 ## Partition tables
 
-The kernel builds its partitions from the Amlogic partition table (MPT) at 36 MiB. Spotify's
-U-Boot writes the stock layout there at each start. superbird-tool's USB U-Boot (loaded in
-mask-ROM mode) writes a different layout, with every partition from `logo` 24 MiB further; the
-next start with Spotify's U-Boot writes the stock layout back. Thus:
+The kernel builds its partitions from the Amlogic partition table (MPT) at 36 MiB. A U-Boot
+writes the table when it starts: its fixed partitions (`bootloader`, `reserved`, `env`) and the
+partitions of the device tree, each one 8 MiB after the one before it.
+
+Two kinds of Spotify U-Boot are in the field:
+
+| U-Boot (example) | Device tree | Table |
+|---|---|---|
+| older (`v1.0-57`, my unit) | `logo`, `dto`, `dtbo_a`/`dtbo_b` of 8 MiB | the table below, without `fip_a`/`fip_b` |
+| newer (`v1.0-74`) | `logo`, `dtbo_a`/`dtbo_b` of 4 MiB, no `dto` | adds `fip_a` (132 MiB) and `fip_b` (144 MiB); `logo` at 156 MiB, `dtbo_a` 172, `dtbo_b` 184 |
+
+In both, `vbmeta_a` and everything after it (`boot_a`, `system_a`, `system_b`, `misc`,
+`settings`, `data`) are at the same places. superbird-tool's USB U-Boot (loaded in mask-ROM
+mode) always adds `fip_a` and `fip_b`; on a Car Thing with the older U-Boot its table therefore
+has every partition from `logo` 24 MiB further. The next start with the Car Thing's own U-Boot
+writes the real table back. Thus:
 
 - write only by raw offset (as `flash.py` and `scripts/sbt-raw-write.py` do), never by
   partition name in superbird-tool's burn mode;
-- `flash.py` writes `system_b` only from Spotify's burn mode (preset 4), after it checks that
-  the MPT has the stock layout;
+- `flash.py` writes `system_b` only when the table of the Car Thing's own U-Boot has it at
+  `0x3120b000` (`docs/release.md`, "Partition table check");
 - do not RAM-boot a kernel after a mask-ROM entry without a normal start first.
+
+The newer layout is from the public peek corpus and superbird-tool's partition list; I tested
+PlayThing only on a Car Thing with the older U-Boot.
 
 | Partition | Offset | Size |
 |---|---|---|
 | `bootloader` | 0 | 4 MiB |
 | `reserved` (MPT at its start) | 36 MiB | 64 MiB |
 | `env` | 116 MiB | 8 MiB |
-| `logo` | 132 MiB | 8 MiB |
-| `dto` | 148 MiB | 8 MiB |
-| `dtbo_a`, `dtbo_b` | 164, 180 MiB | 8 MiB each |
+| `logo` (older U-Boot) | 132 MiB | 8 MiB |
+| `dto` (older U-Boot) | 148 MiB | 8 MiB |
+| `dtbo_a`, `dtbo_b` (older U-Boot) | 164, 180 MiB | 8 MiB each |
 | `vbmeta_a`, `vbmeta_b` | 196, 205 MiB | 1 MiB each |
 | `boot_a`, `boot_b` | 214, 238 MiB | 16 MiB each |
 | `system_a` | 262 MiB (`0x10600000`) | 516.04 MiB |

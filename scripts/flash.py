@@ -21,6 +21,10 @@ Before its first run, the tool makes a Python environment (.venv: pyusb, pyamlbo
   5. First install only: a backup (env, system_b, and the full eMMC unless --no-full-backup),
      then the env change: preset 4 at power-on enters USB burn mode, the normal boot starts
      PlayThing, and preset 1 at power-on starts the stock software.
+     The tool writes system_b only when the partition table of the Car Thing's own U-Boot has
+     system_b where the tool writes (with or without fip_a/fip_b). After a mask-ROM entry the table
+     comes from superbird-tool's U-Boot, so the tool first adds only the preset-4 burn mode, asks
+     for a new connection with preset 4, checks the table, and then changes the boot command.
   6. Write: the image to system_b (the stock B slot, which the stock software does not use),
      each block read back. If a write stops, the same command finishes it.
 It does not change the bootloader, the stock A slot, or the partition table. PlayThing keeps
@@ -82,6 +86,13 @@ ENV_OFFSET, ENV_REGION = 116 * MIB, 8 * MIB
 ENV_SIZE = 0x10000
 SYSTEM_B = (0x3120b000, 0x2040b000)
 BOOT_AREA_OFFSET = 0x1e40b000   # inside system_b: the last 32 MiB
+# Two kinds of Spotify U-Boot are in the field. The older one (for example v1.0-57) has no
+# fip_a/fip_b partitions; the newer one (for example v1.0-74) adds fip_a and fip_b after env. In
+# both, system_b (and boot_a, system_a, data) are at the same place. superbird-tool's USB U-Boot
+# always adds fip_a and fip_b to the Car Thing's own list, so on a Car Thing with the older U-Boot
+# its table has every partition from logo 24 MiB further (2 x (4 MiB + 8 MiB gap)).
+FIP_SHIFT = 24 * MIB
+USB_IDS = ((0x1b8e, 0xc003), (0x18d1, 0x4e40))   # Amlogic USB modes; the stock software's gadget
 BOOT_AREA_SIZE = 32 * MIB
 
 # U-Boot env changes (scripts/sbt-env-cpt-boot.py). cpt_boot reads the boot script from the
@@ -104,6 +115,9 @@ MMC_TIMEOUT = 30000   # ms
 # What the tool has written so far. stop() adds the text that tells how to continue.
 PHASE = 'read'
 RECOVERY = {
+    'button': ('The tool added only the preset-4 USB burn mode to the U-Boot env. The boot command is\n'
+               'not changed, so the Car Thing starts the stock software as before. To continue: hold\n'
+               'preset 4 while you connect it directly, and run "python3 flash.py install" again.'),
     'env': ('The boot command is changed, but the image is not written yet. Until it is, the Car\n'
             'Thing starts the stock software. Connect it with preset 4 held, and run\n'
             '"python3 flash.py install" again.'),
@@ -415,6 +429,34 @@ class Device:
             pass
 
 
+def usb_present():
+    """True while a Car Thing is on the USB bus (any mode). It does not read the product string,
+    so a USB error cannot look like a disconnected Car Thing."""
+    try:
+        import usb.core
+        return any(usb.core.find(idVendor=v, idProduct=p) is not None for v, p in USB_IDS)
+    except Exception:
+        return True
+
+
+def wait_for_unplug():
+    say()
+    say('Disconnect the Car Thing now (unplug the USB cable).')
+    absent = None
+    for i in range(480):
+        if usb_present():
+            absent = None
+        elif absent is None:
+            absent = time.time()
+        elif time.time() - absent >= 1.0:
+            say('  disconnected')
+            return
+        if i and i % 60 == 0:
+            say('  still waiting ...')
+        time.sleep(0.25)
+    stop('the Car Thing is still connected. Unplug the USB cable, and run the same command again.')
+
+
 def wait_for_device(sbd, modes, text):
     say()
     say(text)
@@ -433,8 +475,11 @@ def wait_for_device(sbd, modes, text):
     stop('no Car Thing in USB mode. Check the cable (directly to the computer, no hub).')
 
 
-def connect(sbd, need_stock_uboot):
-    """Return (Device, layout) in USB burn mode. layout is 'stock' or 'superbird-tool'."""
+def connect(sbd):
+    """Connect in USB burn mode. Return (Device, trusted, MPT entries). trusted: the table comes from
+    the Car Thing's own U-Boot. A table with fip_a/fip_b can come from superbird-tool's U-Boot (after a
+    mask-ROM entry, also from an earlier run without a power cycle), so only reconnect_own() makes
+    it trusted. A table without fip_a/fip_b always comes from the Car Thing's own (older) U-Boot."""
     mode = sbd.find_device(silent=True)
     if mode not in ('usb', 'usb-burn'):
         mode = wait_for_device(sbd, ('usb', 'usb-burn'), (
@@ -445,7 +490,7 @@ def connect(sbd, need_stock_uboot):
             '  3. Connect the USB cable directly to this computer, keep holding for 3 s, release.'))
     burn = None
     if mode == 'usb-burn':
-        say("  found: USB burn mode of the Car Thing's own U-Boot")
+        say('  found: USB burn mode')
     if mode == 'usb':
         say('  found: mask-ROM mode')
         # superbird-tool's U-Boot writes its own partition table (MPT) at 36 MiB when it starts.
@@ -459,33 +504,68 @@ def connect(sbd, need_stock_uboot):
             stop('the Car Thing did not enter USB burn mode')
         say('  USB burn mode: ready')
     dev = Device(sbd, burn)
-    layout = mpt_layout(dev)
-    if need_stock_uboot and layout != 'stock':
-        dev = reconnect_stock(sbd, dev)
-        layout = 'stock'
-    return dev, layout
+    entries = read_mpt(dev)
+    trusted = mode == 'usb-burn' and not has_fip(entries)
+    layout = layout_of(entries)
+    if layout == 'other' or (trusted and layout != 'ok'):
+        stop(other_layout_text(entries))
+    return dev, trusted, entries
 
 
-def reconnect_stock(sbd, dev):
-    """Close dev, and connect again in the burn mode of the Car Thing's own U-Boot."""
+def reconnect_own(sbd, dev):
+    """Close dev, and connect again after a power cycle, in the burn mode of the Car Thing's own
+    U-Boot (preset 4). Only that U-Boot's partition table shows where the partitions really are.
+    Return (Device, MPT entries)."""
     dev.close()
-    wait_for_device(sbd, ('not-found', 'normal'), 'Unplug the Car Thing now.')
+    say()
+    say("To check the partition table of the Car Thing's own U-Boot, the tool needs a new connection.")
+    wait_for_unplug()
     mode = wait_for_device(sbd, ('usb-burn', 'usb'), (
-        'The next step needs the burn mode of the Car Thing\'s own U-Boot:\n'
-        '  1. Hold preset button 4 (top row, right).\n'
-        '  2. Connect the USB cable, keep holding for 3 s, release.'))
+        'Connect the Car Thing in the burn mode of its own U-Boot:\n'
+        '  1. Hold preset button 4 (top row, right end).\n'
+        '  2. Connect the USB cable directly to this computer, keep holding for 3 s, release.'))
     if mode != 'usb-burn':
         stop('the Car Thing is in mask-ROM mode (buttons 1 and 4?). Hold only preset 4.')
     time.sleep(2)
     dev = Device(sbd)
-    if mpt_layout(dev) != 'stock':
-        stop('the partition table is still the superbird-tool one')
-    say("  found: USB burn mode of the Car Thing's own U-Boot, stock partition table")
-    return dev
+    entries = read_mpt(dev)
+    if layout_of(entries) != 'ok':
+        stop(other_layout_text(entries))
+    say("  found: USB burn mode of the Car Thing's own U-Boot")
+    say(f'  partition table: {table_kind(entries)}; system_b at {hex(SYSTEM_B[0])} ({SYSTEM_B[1] // MIB} MiB): '
+        'supported')
+    return dev, entries
 
 
-def mpt_layout(dev):
-    """'stock' when the MPT has the stock layout, 'superbird-tool' when it has fip_a/fip_b."""
+def has_fip(entries):
+    return 'fip_a' in entries or 'fip_b' in entries
+
+
+def layout_of(entries):
+    """'ok': system_b is where the tool writes. 'shifted': superbird-tool's table on a Car Thing with
+    the older U-Boot (the real system_b is then also where the tool writes). 'other': unknown."""
+    if entries.get('system_b') == SYSTEM_B:
+        return 'ok'
+    if has_fip(entries) and entries.get('system_b') == (SYSTEM_B[0] + FIP_SHIFT, SYSTEM_B[1]):
+        return 'shifted'
+    return 'other'
+
+
+def table_kind(entries):
+    return ('newer Spotify layout, with fip_a/fip_b' if has_fip(entries)
+            else 'older Spotify layout, without fip_a/fip_b')
+
+
+def other_layout_text(entries):
+    where = entries.get('system_b')
+    where = f'{hex(where[0])} ({where[1] // MIB} MiB)' if where else 'not in the table'
+    return (f'system_b is at {where}, but {PRODUCT} needs it at {hex(SYSTEM_B[0])} '
+            f'({SYSTEM_B[1] // MIB} MiB): this Car Thing has another partition layout. The tool did not\n'
+            'write system_b. "python3 flash.py check" shows the table; please report it.')
+
+
+def read_mpt(dev):
+    """The Amlogic partition table (MPT) at 36 MiB: {name: (offset, size)}."""
     data = dev.read_small(MPT_OFFSET, 8 * SECTOR)
     if not data or data[:3] != b'MPT':
         gpt = dev.read_small(SECTOR, SECTOR)
@@ -498,12 +578,7 @@ def mpt_layout(dev):
     for i in range(min(count, 32)):
         name, size, offset, _mask = struct.unpack_from('<16sQQI', data, 24 + i * 40)
         entries[name.split(b'\0')[0].decode(errors='replace')] = (offset, size)
-    if 'fip_a' in entries or 'fip_b' in entries:
-        return 'superbird-tool'
-    if entries.get('system_b') != SYSTEM_B:
-        stop(f'system_b is at {entries.get("system_b")}, expected {SYSTEM_B}: '
-             'this Car Thing has another layout. Nothing was written.')
-    return 'stock'
+    return entries
 
 
 def read_env(dev):
@@ -646,7 +721,7 @@ INSTALL_STEPS = [
     'Image: download the files that this folder does not contain, and make work/system.raw',
     'Connect: the Car Thing in USB mode',
     'Check: partition table, slot, and boot command (reads only), then a question',
-    'First install only: a backup (about 6 minutes) and the boot command',
+    'First install only: a backup (about 6 minutes), a check of the partition table, and the boot command',
     'Write: the image to system_b (about 3 minutes), each block read back',
 ]
 RESTORE_STEPS = [
@@ -658,13 +733,14 @@ RESTORE_STEPS = [
 ]
 
 
-def show_state(layout, env, state, restore=False):
-    if layout == 'stock':
-        say(f'  partition table: stock layout (system_b at {hex(SYSTEM_B[0])}, {SYSTEM_B[1] // MIB} MiB)')
+def show_state(trusted, entries, env, state, restore=False):
+    if trusted:
+        say(f"  partition table (the Car Thing's own U-Boot): {table_kind(entries)}; system_b at "
+            f'{hex(SYSTEM_B[0])}: supported')
     else:
-        say("  partition table: superbird-tool's layout (its U-Boot is in RAM; the stock U-Boot writes")
-        say('                   the stock one back). Before the write, the tool asks you to connect')
-        say('                   again with preset 4.')
+        say('  partition table: it can come from a U-Boot in RAM (superbird-tool\'s). Before it writes,')
+        say("                   the tool checks the table of the Car Thing's own U-Boot: it asks you")
+        say('                   to connect again with preset 4.')
     say(f'  stock software: slot {env["active_slot"][-1].upper()}')
     say('  USB burn mode with preset 4 at power-on: '
         + ('yes' if BURN_BUTTON.strip() in env.get('storeargs', '') else
@@ -696,10 +772,18 @@ def cmd_prepare(args):
 
 def cmd_check(args):
     sbd = load_tools()
-    dev, layout = connect(sbd, need_stock_uboot=False)
-    say(f'== partition table: {layout} layout'
-        + (' (superbird-tool U-Boot in RAM; the stock U-Boot writes the stock table back)'
-           if layout != 'stock' else ''))
+    dev, trusted, entries = connect(sbd)
+    say('== partition table (MPT at 36 MiB)'
+        + (" of the Car Thing's own U-Boot" if trusted else
+           ": it can come from superbird-tool's U-Boot in RAM (after a mask-ROM entry, or from an\n"
+           "   earlier run without a power cycle). For the Car Thing's own table: disconnect it, hold\n"
+           '   preset 4 while you connect it, and run check again'))
+    for name, (offset, size) in sorted(entries.items(), key=lambda e: e[1][0]):
+        say(f'  {name:10s} {offset / MIB:9.2f} MiB  ' + (f'{size / MIB:8.2f} MiB' if size < 2**40 else 'to the end'))
+    layout = layout_of(entries)
+    say('  ' + {'ok': f'{table_kind(entries)}: system_b at {hex(SYSTEM_B[0])}, supported',
+                'shifted': "superbird-tool's table for a Car Thing with the older Spotify U-Boot",
+                'other': 'system_b is not where the tool writes: another layout'}[layout])
     env = read_env(dev)
     say(f'  active_slot={env.get("active_slot")!r}')
     say(f'  bootcmd={env.get("bootcmd")!r}')
@@ -720,23 +804,40 @@ def cmd_install(args):
     step(2)
     system_raw, manifest = prepare(args.images)
     step(3)
-    dev, layout = connect(sbd, need_stock_uboot=False)
+    dev, trusted, entries = connect(sbd)
     step(4)
     env = read_env(dev)
     state = env_state(env)
-    show_state(layout, env, state)
+    show_state(trusted, entries, env, state)
+    again = '' if trusted else ' (after a new connection with preset 4)'
     if state == 'stock':
         ask(f'First install of {PRODUCT} {manifest["version"]}. The tool makes a backup (about 6 minutes),\n'
-            'changes the U-Boot env, and writes the image to system_b (about 3 minutes).\n'
+            f'changes the U-Boot env{again}, and writes the image to system_b (about 3 minutes).\n'
             'You do this at your own risk (README.md, "Warning").')
     else:
-        ask(f'Update: the tool writes {PRODUCT} {manifest["version"]} to system_b (about 3 minutes; it skips '
-            'the blocks\nthat are already the same). Your /data stays. If the Car Thing has a different image now, '
-            'Android\ndeletes the data of the apps that this image does not have (README.md, "Update").')
+        ask(f'Update: the tool writes {PRODUCT} {manifest["version"]} to system_b{again} (about 3 minutes; it\n'
+            'skips the blocks that are already the same). Your /data stays. If the Car Thing has a different\n'
+            'image now, Android deletes the data of the apps that this image does not have (README.md, "Update").')
     folder = None
     if state == 'stock':
-        step(5, 'Backup and boot command (first install)')
+        step(5, 'Backup, partition table, and boot command (first install)')
         folder = backup(dev, env, full=not args.no_full_backup)
+        if not trusted:
+            # Check the real partition table before the boot command changes. The new connection
+            # needs the preset-4 burn mode, so add only that first (superbird-tool's
+            # --enable_burn_mode_button makes the same change).
+            if BURN_BUTTON.strip() not in env.get('storeargs', ''):
+                say('  U-Boot env: the preset-4 USB burn mode')
+                PHASE = 'button'
+                run_env_commands(dev, ['setenv storeargs "${storeargs}' + BURN_BUTTON + '"'])
+                if BURN_BUTTON.strip() not in read_env(dev).get('storeargs', ''):
+                    stop('the env does not have the preset-4 burn mode after "env save"')
+                say('  preset-4 USB burn mode added and read back')
+            dev, entries = reconnect_own(sbd, dev)
+            trusted = True
+            env = read_env(dev)
+            if env_state(env) != 'stock':
+                stop('the boot command changed during the new connection. Nothing more was written.')
         say('  U-Boot env: the boot command')
         commands = [f'setenv cpt_boot "{CPT_BOOT}"', f'setenv bootcmd "{BOOTCMD}"']
         if BURN_BUTTON.strip() not in env.get('storeargs', ''):
@@ -753,8 +854,8 @@ def cmd_install(args):
     else:
         step(5, 'Backup and boot command: not necessary for an update')
     step(6)
-    if layout != 'stock':
-        dev = reconnect_stock(sbd, dev)
+    if not trusted:
+        dev, entries = reconnect_own(sbd, dev)
     write_image(dev, system_raw)
     dev.close()
     PHASE = 'done'
@@ -775,11 +876,13 @@ def cmd_restore(args):
     step(1)
     sbd = load_tools()
     step(2)
-    dev, layout = connect(sbd, need_stock_uboot=True)
+    dev, trusted, entries = connect(sbd)
+    if not trusted:
+        dev, entries = reconnect_own(sbd, dev)
     step(3)
     env = read_env(dev)
     state = env_state(env)
-    show_state(layout, env, state, restore=True)
+    show_state(True, entries, env, state, restore=True)
     if state == 'installed':
         ask('Restore: the tool writes the stock boot command, then system_b from the backup (about 3\n'
             'minutes). Preset 4 at power-on keeps USB burn mode.')
