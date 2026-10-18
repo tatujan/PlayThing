@@ -29,7 +29,11 @@ app buffer.
 ## Hardware composer (`hwcomposer/hwcomposer.cpp`)
 
 A small HWC2 module, loaded by the AOSP composer service
-(`android.hardware.graphics.composer@2.1-service`, `ro.hardware.hwcomposer=superbird`):
+(`android.hardware.graphics.composer@2.1-service`, `ro.hardware.hwcomposer=superbird`). It needs
+the Amlogic framebuffer driver (`meson-fb`, `/dev/graphics/fb0`); the boot script keeps that
+driver on Car Things whose stock software v8 moves the display to DRM (`docs/boot.md`,
+"Device-tree overlays"). Without `/dev/graphics/fb0`, the composer service does not start,
+SurfaceFlinger waits for it, and the screen shows noise after the logo.
 
 - **Validate:** every layer becomes `CLIENT`.
 - **Present:** the frame buffer driver's sync-render ioctl (`0x4519`, single-layer mode, direct

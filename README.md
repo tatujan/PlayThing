@@ -1,6 +1,6 @@
 # PlayThing
 
-**Status: beta** (version 0.1.0-beta.4). It is tested on one Car Thing only, and it has known
+**Status: beta** (version 0.1.0-beta.5). It is tested on one Car Thing only, and it has known
 issues (`docs/known-issues.md`).
 
 Android 9 on the Spotify Car Thing, as a wired Apple CarPlay receiver. An iPhone connects to the
@@ -57,8 +57,8 @@ For a USB mode, connect the Car Thing directly to the computer, not through the 
 
 ## First install
 
-1. Download `plaything-0.1.0-beta.4.zip` from the [Releases page](https://github.com/tatujan/PlayThing/releases) of this repository,
-   unzip it, and open a terminal in the folder `plaything-0.1.0-beta.4`. (Or make a release folder
+1. Download `plaything-0.1.0-beta.5.zip` from the [Releases page](https://github.com/tatujan/PlayThing/releases) of this repository,
+   unzip it, and open a terminal in the folder `plaything-0.1.0-beta.5`. (Or make a release folder
    yourself, see "Build".)
 2. Disconnect the Car Thing. Hold presets 1 and 4, connect it directly to the computer, and
    release after about 3 seconds.

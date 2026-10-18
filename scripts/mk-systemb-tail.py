@@ -113,10 +113,15 @@ def main():
         'cpt_mode=' + ('run cpt_host' if args.mode == 'host' else 'echo cpt: device mode'),
         # imgread uses loadaddr (0x1080000, the kernel address) as its work buffer
         # (Assumed). Thus the DTB comes first and the kernel after it, as in sbt-ramboot.py.
+        # The newer Spotify U-Boot applies the overlays of dtbo_a at booti when the env has
+        # androidboot.dtbo_idx (bootm.c, do_fdt_overlay). The stock software v8 sets it, and
+        # its overlay moves the display from the framebuffer driver (meson-fb, /dev/graphics/fb0,
+        # which the HWC needs) to the DRM driver. So delete it in the RAM env (no env save).
         'cpt_script=imgread dtb boot_a 0x1000000; run cpt_dt; run cpt_keys; run cpt_mode; '
         f'mmc dev 1 0; mmc read 0x1080000 {hex(ksec)} {hex(sectors(len(kernel)))}; '
         f'mmc read 0x13000000 {hex(rsec)} {hex(sectors(len(ramdisk)))}; '
-        'setenv bootargs ${cpt_bootargs}; booti 0x1080000 0x13000000 0x1000000',
+        'setenv bootargs ${cpt_bootargs}; setenv androidboot.dtbo_idx; '
+        'booti 0x1080000 0x13000000 0x1000000',
     ]
     text = ('\n'.join(lines) + '\n').encode()
     if len(text) >= VARS_MAX:

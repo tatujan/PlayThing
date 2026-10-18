@@ -37,8 +37,12 @@ CarPlay calls work over A2DP with the built-in microphones, but:
 - I tested PlayThing only on a Car Thing with the older Spotify U-Boot (`v1.0-57`). Car Things
   with the newer U-Boot (`v1.0-74`, with `fip_a`/`fip_b` in the partition table) have the same
   places for the partitions that PlayThing uses, and the same device-tree nodes; `flash.py`
-  supports them since `0.1.0-beta.2`, but they are not tested yet. Version `0.1.0-beta` of the
-  tool stopped on them ("the partition table is still the superbird-tool one").
+  supports them since `0.1.0-beta.2`. Version `0.1.0-beta` of the tool stopped on them ("the
+  partition table is still the superbird-tool one"). On a unit with the stock software v8
+  (board revision 4), PlayThing up to `0.1.0-beta.4` started Android, but the screen showed
+  noise: U-Boot applied the stock DRM overlay, so `/dev/graphics/fb0` was missing.
+  `0.1.0-beta.5` skips that overlay (`docs/boot.md`, "Device-tree overlays"); not tested yet on
+  such a unit.
 
 ## Logs
 

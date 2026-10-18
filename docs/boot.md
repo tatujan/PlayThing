@@ -72,7 +72,17 @@ storeargs=<stock value> if gpio input GPIOA_3; then run update; fi;
    - USB host mode: the USB-C port becomes a host with power in (`docs/hardware.md`).
 3. Read the kernel and the ramdisk from the boot area, set `bootargs`
    (`scripts/ramboot/env-android.txt`: `androidboot.hardware=superbird`, panel and display
-   settings from the stock env, `zram.num_devices=2`, `loglevel=4`), and `booti`.
+   settings from the stock env, `zram.num_devices=2`, `loglevel=4`), delete
+   `androidboot.dtbo_idx` in the RAM env, and `booti`.
+
+**Device-tree overlays.** The newer Spotify U-Boot applies the overlays of `dtbo_a` at `booti`
+when the env has `androidboot.dtbo_idx` (`common/bootm.c`, `do_fdt_overlay`, in Spotify's U-Boot
+source). The stock software v8 sets `androidboot.dtbo_idx=0`, and its overlay moves the display
+from the framebuffer driver (`meson-fb`) to the DRM driver. PlayThing's display needs the
+framebuffer (`docs/graphics.md`), so its boot script deletes the variable in the RAM env before
+`booti`: U-Boot then applies no overlay. The saved env does not change, so the stock software
+still gets its overlay. On a Car Thing without the variable (the older firmware), this changes
+nothing. `flash.py diag` lists the overlays of `dtbo_a` and the value of the variable.
 
 ## Partition tables
 

@@ -1175,6 +1175,7 @@ def cmd_diag(args):
                 note(f'  device-tree partitions: {", ".join(parts)}')
                 panels = sorted(k.split('/')[-1] for k in nodes if k.startswith('/lcd/lcd_'))
                 note(f'  panel nodes: {", ".join(panels)}')
+                dtbo_overlays(nodes)
         root = Ext4(ChunkReader(dev, SYSTEM_A_OFFSET))
         for path in ('etc/superbird/version', 'etc/sw-versions', 'usr/lib/os-release'):
             ino = root.lookup(path)
@@ -1182,6 +1183,42 @@ def cmd_diag(args):
             note(f'  stock /{path}: ' + ' | '.join(l for l in value.splitlines() if l.strip())[:300])
         hcd = root.lookup('lib/firmware/brcm/BCM20703A2.hcd')
         note('  stock Bluetooth firmware: ' + (f'{hcd["size"]} bytes' if hcd else 'NOT there (PlayThing needs it)'))
+
+    def dtbo_overlays(base):
+        """The overlays in dtbo_<slot>, which the newer U-Boot applies at booti when the env has
+        androidboot.dtbo_idx (PlayThing's boot script deletes it in RAM)."""
+        env = state.get('env', {})
+        note(f'  env androidboot.dtbo_idx: {env.get("androidboot.dtbo_idx")!r}')
+        name = 'dtbo' + env.get('active_slot', '_a')
+        if name not in entries:
+            note(f'  no {name} partition')
+            return
+        offset, size = entries[name]
+        data = dev.read(offset, min(size, BLOCK))
+        if not data or data[:4] != b'\xd7\xb7\xab\x1e':
+            note(f'  {name}: no overlay table')
+            return
+        (folder / f'{name}.img').write_bytes(data)
+        count, entries_offset = struct.unpack_from('>II', data, 16)
+        entry_size, = struct.unpack_from('>I', data, 12)
+        paths = {int.from_bytes(v['phandle'], 'big'): k for k, v in base.items() if 'phandle' in v}
+        note(f'  {name}: {count} overlays (saved as {name}.img)')
+        for i in range(min(count, 8)):
+            dt_size, dt_offset = struct.unpack_from('>II', data, entries_offset + i * entry_size)
+            overlay = fdt_nodes(data[dt_offset:dt_offset + dt_size])
+            changes = []
+            for path, props in overlay.items():
+                if '/__overlay__' not in path:
+                    continue
+                frag = path.split('/__overlay__')[0]
+                fp = overlay.get(frag, {})
+                target = (fp['target-path'].split(b'\0')[0].decode(errors='replace') if 'target-path' in fp else
+                          paths.get(int.from_bytes(fp.get('target', b'\0' * 4), 'big'), '?'))
+                where = target.rstrip('/') + path.split('/__overlay__')[1]
+                shown = {k: (v.split(b'\0')[0].decode(errors='replace') if v[-1:] == b'\0' else f'<{len(v)} bytes>')
+                         for k, v in props.items() if k != 'phandle'}
+                changes.append(f'{where or "/"} {shown}' if shown else f'{where or "/"} (node)')
+            note(f'  overlay {i}: ' + ('; '.join(changes)[:1500] or 'empty'))
 
     def part6():
         outer = Ext4(ChunkReader(dev, DATA_OFFSET))
