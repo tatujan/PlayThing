@@ -114,8 +114,9 @@ and U-Boot then stops answering until a power cycle.
 | `data/` | from `userdata.img` on the stock data partition: `misc/logd` (Android and kernel logs), `tombstones`, `anr`, `misc/bootstat` |
 
 For `data/` the tool reads two ext4 file systems over USB: the stock data partition, and the
-ext4 image `plaything/userdata.img` in it. The journal is not replayed, so the last seconds
-before a power cut can be missing. `data/` has device data (Bluetooth addresses, device names);
+ext4 image `plaything/userdata.img` in it. After a power cut, the newest metadata (file sizes,
+block lists) is still in the ext4 journal, so the tool replays the journal in memory, as a
+recovery does (`e2fsck` gives the same files), and writes nothing. `data/` has device data (Bluetooth addresses, device names);
 the other files have none.
 
 ## Coming from another firmware

@@ -776,17 +776,19 @@ class FileSource:
             part = min(size, self.fs.bs - inside)
             phys = self.fs.physical(self.runs, lblock)
             out += (bytes(part) if phys is None else
-                    self.fs.src.read(phys * self.fs.bs + inside, part))
+                    self.fs.read(phys * self.fs.bs + inside, part))
             offset += part
             size -= part
         return bytes(out)
 
 
 class Ext4:
-    """Enough of ext4 to list folders and read files: extents (and old block maps), 64-bit."""
+    """Enough of ext4 to list folders and read files: extents (and old block maps), 64-bit. After
+    a power cut, the newest metadata is in the journal: the reader replays it in memory."""
 
     def __init__(self, src):
         self.src = src
+        self.overlay = {}          # file system block -> its newest copy in the journal
         sb = src.read(1024, 1024)
         if struct.unpack_from('<H', sb, 56)[0] != 0xEF53:
             raise ValueError('no ext4 file system')
@@ -800,14 +802,93 @@ class Ext4:
         self.clean = bool(struct.unpack_from('<H', sb, 58)[0] & 1)
         self.mount_time, self.write_time = struct.unpack_from('<II', sb, 44)
         self.journal_needs_recovery = bool(incompat & 0x4)
+        self.replayed = 0
+        if self.journal_needs_recovery and struct.unpack_from('<I', sb, 92)[0] & 0x4:
+            self._replay(struct.unpack_from('<I', sb, 224)[0])
+
+    def read(self, offset, size):
+        """Bytes of the file system, with the replayed journal blocks in place."""
+        if not self.overlay:
+            return self.src.read(offset, size)
+        out = bytearray()
+        while size > 0:
+            blk, inside = divmod(offset, self.bs)
+            part = min(size, self.bs - inside)
+            if blk in self.overlay:
+                out += self.overlay[blk][inside:inside + part]
+            else:
+                out += self.src.read(offset, part)
+            offset += part
+            size -= part
+        return bytes(out)
+
+    def _replay(self, journal_inode):
+        """Read the jbd2 journal like a recovery does, and keep the result in self.overlay."""
+        journal = FileSource(self, self.inode(journal_inode))
+        jblock = lambda n: journal.read(n * self.bs, self.bs)
+        jsb = jblock(0)
+        magic, kind = struct.unpack_from('>II', jsb, 0)
+        if magic != 0xC03B3998 or kind not in (3, 4):
+            return
+        maxlen, first, sequence, start = struct.unpack_from('>IIII', jsb, 16)
+        incompat = struct.unpack_from('>I', jsb, 40)[0] if kind == 4 else 0
+        if not start:
+            return
+        csum3, csum2, wide = incompat & 0x10, incompat & 0x8, incompat & 0x2
+        tag_size = 16 if csum3 else (8 + (2 if csum2 else 0) + (4 if wide else 0))
+        tail = 4 if (csum2 or csum3) else 0
+        nxt = lambda n: first if n + 1 >= maxlen else n + 1
+        committed, pending, revoked = [], [], {}
+        pos, expect = start, sequence
+        for _ in range(maxlen):
+            head = jblock(pos)
+            magic, kind, seq = struct.unpack_from('>III', head, 0)
+            if magic != 0xC03B3998 or seq != expect:
+                break
+            if kind == 1:                                    # descriptor: tags, then the blocks
+                off, data_pos = 12, nxt(pos)
+                while off + tag_size <= self.bs - tail:
+                    if csum3:
+                        lo, flags, hi = struct.unpack_from('>III', head, off)
+                    else:
+                        lo, = struct.unpack_from('>I', head, off)
+                        flags, = struct.unpack_from('>H', head, off + 6)
+                        hi = struct.unpack_from('>I', head, off + 8)[0] if wide else 0
+                    pending.append(((hi << 32 if wide else 0) | lo, data_pos, flags & 1))
+                    data_pos = nxt(data_pos)
+                    off += tag_size + (0 if flags & 2 else 16)   # 16-byte UUID unless SAME_UUID
+                    if flags & 8:                                 # LAST_TAG
+                        break
+                pos = data_pos
+            elif kind == 2:                                  # commit
+                committed.append((seq, pending))
+                pending, expect, pos = [], expect + 1, nxt(pos)
+            elif kind == 5:                                  # revoke: older copies must not return
+                count, = struct.unpack_from('>I', head, 12)
+                rsize = 8 if wide else 4
+                for off in range(16, min(count, self.bs), rsize):
+                    blk = int.from_bytes(head[off:off + rsize], 'big')
+                    revoked[blk] = max(revoked.get(blk, -1), seq)
+                pos = nxt(pos)
+            else:
+                break
+        for seq, blocks in committed:
+            for blk, where, escaped in blocks:
+                if revoked.get(blk, -1) >= seq:
+                    continue
+                data = bytearray(jblock(where))
+                if escaped:
+                    data[0:4] = b'\xc0\x3b\x39\x98'
+                self.overlay[blk] = bytes(data)
+        self.replayed = len(committed)
 
     def inode(self, n):
         group, index = divmod(n - 1, self.ipg)
-        d = self.src.read(self.gdt + group * self.desc_size, self.desc_size)
+        d = self.read(self.gdt + group * self.desc_size, self.desc_size)
         table = struct.unpack_from('<I', d, 8)[0]
         if self.desc_size >= 64:
             table |= struct.unpack_from('<I', d, 0x28)[0] << 32
-        raw = self.src.read(table * self.bs + index * self.inode_size, 128)
+        raw = self.read(table * self.bs + index * self.inode_size, 128)
         return {'n': n, 'mode': struct.unpack_from('<H', raw, 0)[0],
                 'size': struct.unpack_from('<I', raw, 4)[0] | (struct.unpack_from('<I', raw, 108)[0] << 32),
                 'mtime': struct.unpack_from('<I', raw, 16)[0], 'flags': struct.unpack_from('<I', raw, 32)[0],
@@ -852,7 +933,7 @@ class Ext4:
                 self._extents(self.block((hi << 32) | lo), out)
 
     def block(self, n):
-        return self.src.read(n * self.bs, self.bs)
+        return self.read(n * self.bs, self.bs)
 
     @staticmethod
     def physical(runs, lblock):
@@ -1104,8 +1185,10 @@ def cmd_diag(args):
 
     def part6():
         outer = Ext4(ChunkReader(dev, DATA_OFFSET))
-        note(f'  stock data file system: label {outer.label!r}, {"clean" if outer.clean else "not clean"}, '
-             f'last mount {utc(outer.mount_time)}, last write {utc(outer.write_time)}')
+        note(f'  stock data file system: label {outer.label!r}, last mount {utc(outer.mount_time)}, '
+             f'last write {utc(outer.write_time)}'
+             + (f' (after a power cut: {outer.replayed} journal transactions replayed in memory)'
+                if outer.journal_needs_recovery else ''))
         top = outer.lookup(DATA_FOLDER)
         if top is None or not is_dir(top):
             note(f'  no folder {DATA_FOLDER}/: {PRODUCT} never started far enough to make its /data '
@@ -1125,7 +1208,8 @@ def cmd_diag(args):
         inner = Ext4(FileSource(outer, img))
         note(f'  /data file system: label {inner.label!r}, last mount {utc(inner.mount_time)}, '
              f'last write {utc(inner.write_time)}'
-             + (' (the journal was not replayed: the last seconds can be missing)' if inner.journal_needs_recovery else ''))
+             + (f' (after a power cut: {inner.replayed} journal transactions replayed in memory)'
+                if inner.journal_needs_recovery else ''))
         copied = 0
         for path in ('misc/logd', 'tombstones', 'anr', 'misc/bootstat'):
             d = inner.lookup(path)
