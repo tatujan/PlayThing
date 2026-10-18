@@ -182,6 +182,12 @@ command and the backed-up `system_b` back. {title} keeps its data in the folder
 - **The screen stays black** more than 3 minutes after an install. Disconnect the Car Thing,
   hold preset 1, and connect it: the stock software starts. Then run `python3 flash.py check`
   (preset 4) and the install again, or `restore`.
+- **To report a problem:** hold preset 4 while you connect the Car Thing directly, and run
+  `python3 flash.py diag`. It writes nothing, and it makes a folder `diag/<time>/`: the U-Boot
+  env, the partition table, a check of the installed image, the stock device tree and software
+  version, and the Android logs of the last starts. You can post `summary.txt`, `env.txt`,
+  `mpt.txt`, and `boot_a.dtb`. The folder `data/` has the Android logs, with device data
+  (Bluetooth addresses, device names): share it only privately.
 
 ## Contents
 

@@ -7,6 +7,8 @@
   python3 flash.py restore BACKUP    remove PlayThing: write system_b and the boot command back
   python3 flash.py prepare           only make the image (no device)
   python3 flash.py check             read the Car Thing's state, write nothing
+  python3 flash.py diag              collect a diagnostic folder (diag/): env, partition table,
+                                     image check, stock device tree, PlayThing logs; writes nothing
 
 Before its first run, the tool makes a Python environment (.venv: pyusb, pyamlboot).
 "install" then does these steps, and it numbers them in its output:
@@ -50,7 +52,7 @@ import tempfile
 import time
 import urllib.request
 import zlib
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 PRODUCT = 'PlayThing'
@@ -399,6 +401,20 @@ class Device:
             time.sleep(1)
         return None
 
+    def read_ram(self, address, size):
+        """Read U-Boot RAM (at most BLOCK) through the upload protocol. Return None on failure."""
+        aligned = -(-size // MIB) * MIB
+        if not self.command(f'upload mem {hex(address)} normal {hex(aligned)}'):
+            return None
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.dev._fast_read_to_file('raw', aligned, address, self.tmp)
+            data = Path(self.tmp).read_bytes()
+            return data[:size] if len(data) == aligned else None
+        except Exception:
+            self.dev._fast_reopen()
+            return None
+
     def read_small(self, offset, size):
         """Read a few sectors through readMemory (no upload protocol). The caller checks the data
         (as sbt-raw-write.py does): the status of "mmc read" differs between the U-Boots."""
@@ -475,7 +491,7 @@ def wait_for_device(sbd, modes, text):
     stop('no Car Thing in USB mode. Check the cable (directly to the computer, no hub).')
 
 
-def connect(sbd):
+def connect(sbd, strict=True):
     """Connect in USB burn mode. Return (Device, trusted, MPT entries). trusted: the table comes from
     the Car Thing's own U-Boot. A table with fip_a/fip_b can come from superbird-tool's U-Boot (after a
     mask-ROM entry, also from an earlier run without a power cycle), so only reconnect_own() makes
@@ -507,7 +523,7 @@ def connect(sbd):
     entries = read_mpt(dev)
     trusted = mode == 'usb-burn' and not has_fip(entries)
     layout = layout_of(entries)
-    if layout == 'other' or (trusted and layout != 'ok'):
+    if strict and (layout == 'other' or (trusted and layout != 'ok')):
         stop(other_layout_text(entries))
     return dev, trusted, entries
 
@@ -714,6 +730,196 @@ def write_image(dev, system_raw):
     write_file(dev, HERE_IMAGES / 'boot-area.img', SYSTEM_B[0] + BOOT_AREA_OFFSET, 'boot area')
 
 
+# ------------------------------------------------------------------ diag: a read-only ext4 reader
+
+BOOT_A_OFFSET = 0xd600000    # boot_a: the same place with the older and the newer U-Boot
+SYSTEM_A_OFFSET = 0x10600000  # system_a (the stock root file system): the same with both
+DATA_OFFSET = 0x63616000     # data: the same place with both (data-setup.sh checks it)
+
+
+class ChunkReader:
+    """Bytes of the eMMC from base on, with a cache of 1 MiB chunks (each USB read costs time)."""
+
+    def __init__(self, dev, base):
+        self.dev, self.base, self.cache = dev, base, {}
+
+    def read(self, offset, size):
+        out = bytearray()
+        pos = self.base + offset
+        while size > 0:
+            chunk = pos // MIB
+            if chunk not in self.cache:
+                if len(self.cache) >= 64:
+                    self.cache.clear()
+                data = self.dev.read(chunk * MIB, MIB)
+                if data is None:
+                    raise IOError(f'eMMC read failed at {hex(chunk * MIB)}')
+                self.cache[chunk] = data
+            start = pos - chunk * MIB
+            part = min(size, MIB - start)
+            out += self.cache[chunk][start:start + part]
+            pos += part
+            size -= part
+        return bytes(out)
+
+
+class FileSource:
+    """A file in an ext4 file system as a byte source (for the ext4 image in userdata.img)."""
+
+    def __init__(self, fs, ino):
+        self.fs, self.runs, self.size = fs, fs.runs(ino), ino['size']
+
+    def read(self, offset, size):
+        out = bytearray()
+        while size > 0:
+            lblock, inside = divmod(offset, self.fs.bs)
+            part = min(size, self.fs.bs - inside)
+            phys = self.fs.physical(self.runs, lblock)
+            out += (bytes(part) if phys is None else
+                    self.fs.src.read(phys * self.fs.bs + inside, part))
+            offset += part
+            size -= part
+        return bytes(out)
+
+
+class Ext4:
+    """Enough of ext4 to list folders and read files: extents (and old block maps), 64-bit."""
+
+    def __init__(self, src):
+        self.src = src
+        sb = src.read(1024, 1024)
+        if struct.unpack_from('<H', sb, 56)[0] != 0xEF53:
+            raise ValueError('no ext4 file system')
+        self.bs = 1024 << struct.unpack_from('<I', sb, 24)[0]
+        self.ipg = struct.unpack_from('<I', sb, 40)[0]
+        self.inode_size = struct.unpack_from('<H', sb, 88)[0] or 128
+        incompat = struct.unpack_from('<I', sb, 96)[0]
+        self.desc_size = (struct.unpack_from('<H', sb, 254)[0] or 32) if incompat & 0x80 else 32
+        self.gdt = (struct.unpack_from('<I', sb, 20)[0] + 1) * self.bs
+        self.label = sb[120:136].split(b'\0')[0].decode(errors='replace')
+        self.clean = bool(struct.unpack_from('<H', sb, 58)[0] & 1)
+        self.mount_time, self.write_time = struct.unpack_from('<II', sb, 44)
+        self.journal_needs_recovery = bool(incompat & 0x4)
+
+    def inode(self, n):
+        group, index = divmod(n - 1, self.ipg)
+        d = self.src.read(self.gdt + group * self.desc_size, self.desc_size)
+        table = struct.unpack_from('<I', d, 8)[0]
+        if self.desc_size >= 64:
+            table |= struct.unpack_from('<I', d, 0x28)[0] << 32
+        raw = self.src.read(table * self.bs + index * self.inode_size, 128)
+        return {'n': n, 'mode': struct.unpack_from('<H', raw, 0)[0],
+                'size': struct.unpack_from('<I', raw, 4)[0] | (struct.unpack_from('<I', raw, 108)[0] << 32),
+                'mtime': struct.unpack_from('<I', raw, 16)[0], 'flags': struct.unpack_from('<I', raw, 32)[0],
+                'iblock': raw[40:100]}
+
+    def runs(self, ino):
+        """[(first logical block, first physical block or None for zeros, count)], sorted."""
+        if ino['flags'] & 0x10000000:
+            raise ValueError('inline data is not supported')
+        out = []
+        if ino['flags'] & 0x80000:
+            self._extents(ino['iblock'], out)
+        else:
+            ptrs = list(struct.unpack('<15I', ino['iblock']))
+            per = self.bs // 4
+            blocks = [(i, b) for i, b in enumerate(ptrs[:12])]
+            if ptrs[12]:
+                blocks += [(12 + i, b) for i, b in enumerate(struct.unpack(f'<{per}I', self.block(ptrs[12])))]
+            if ptrs[13]:
+                for j, ind in enumerate(struct.unpack(f'<{per}I', self.block(ptrs[13]))):
+                    if ind:
+                        blocks += [(12 + per + j * per + i, b) for i, b in
+                                   enumerate(struct.unpack(f'<{per}I', self.block(ind)))]
+            out = [(lb, pb or None, 1) for lb, pb in blocks]
+        return sorted(out, key=lambda r: r[0])
+
+    def _extents(self, node, out):
+        magic, entries, _max, depth = struct.unpack_from('<HHHH', node, 0)
+        if magic != 0xF30A:
+            raise ValueError('bad extent header')
+        for k in range(entries):
+            e = node[12 + 12 * k:24 + 12 * k]
+            if depth == 0:
+                lblock, length, hi, lo = struct.unpack('<IHHI', e)
+                start = (hi << 32) | lo
+                if length > 32768:            # an uninitialized extent reads as zeros
+                    out.append((lblock, None, length - 32768))
+                else:
+                    out.append((lblock, start, length))
+            else:
+                _lblock, lo, hi, _ = struct.unpack('<IIHH', e)
+                self._extents(self.block((hi << 32) | lo), out)
+
+    def block(self, n):
+        return self.src.read(n * self.bs, self.bs)
+
+    @staticmethod
+    def physical(runs, lblock):
+        for first, phys, count in runs:
+            if first <= lblock < first + count:
+                return None if phys is None else phys + lblock - first
+        return None
+
+    def read_file(self, ino, limit=None):
+        size = ino['size'] if limit is None else min(ino['size'], limit)
+        return FileSource(self, ino).read(0, size)
+
+    def listdir(self, ino):
+        data, out = self.read_file(ino), {}
+        for base in range(0, len(data), self.bs):
+            pos = base
+            while pos + 8 <= base + self.bs and pos + 8 <= len(data):
+                child, rec_len, name_len, _ftype = struct.unpack_from('<IHBB', data, pos)
+                if rec_len < 8:
+                    break
+                if child and name_len:
+                    out[data[pos + 8:pos + 8 + name_len].decode(errors='replace')] = child
+                pos += rec_len
+        return out
+
+    def lookup(self, path):
+        ino = self.inode(2)
+        for part in [p for p in path.split('/') if p]:
+            entries = self.listdir(ino)
+            if part not in entries:
+                return None
+            ino = self.inode(entries[part])
+        return ino
+
+
+def fdt_nodes(blob):
+    """{node path: {property: bytes}} of a flattened device tree."""
+    _magic, _total, off_struct, off_strings = struct.unpack_from('>IIII', blob, 0)
+    pos, stack, nodes = off_struct, [], {}
+    while pos < len(blob):
+        tok, = struct.unpack_from('>I', blob, pos)
+        pos += 4
+        if tok == 1:
+            end = blob.index(b'\0', pos)
+            stack.append(blob[pos:end].decode(errors='replace'))
+            nodes.setdefault('/'.join(stack) or '/', {})
+            pos = (end + 4) & ~3
+        elif tok == 2:
+            stack.pop()
+        elif tok == 3:
+            length, nameoff = struct.unpack_from('>II', blob, pos)
+            name = blob[off_strings + nameoff:blob.index(b'\0', off_strings + nameoff)].decode(errors='replace')
+            nodes['/'.join(stack) or '/'][name] = blob[pos + 8:pos + 8 + length]
+            pos = (pos + 8 + length + 3) & ~3
+        elif tok == 9:
+            break
+    return nodes
+
+
+def utc(t):
+    return datetime.fromtimestamp(t, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC') if t else '-'
+
+
+def is_dir(ino):
+    return ino['mode'] & 0xF000 == 0x4000
+
+
 # ------------------------------------------------------------------ commands
 
 INSTALL_STEPS = [
@@ -793,6 +999,161 @@ def cmd_check(args):
     say(f'  eMMC user area: {user_area_size(dev) // MIB} MiB')
     dev.close()
     say('Nothing was written.')
+
+
+DIAG_STEPS = [
+    "Tools: superbird-tool's USB code",
+    'Connect: the Car Thing in USB burn mode (preset 4 is best; the tool writes nothing)',
+    'U-Boot env and partition table',
+    'The installed image on system_b (about 1 minute)',
+    'The stock device tree (boot_a, decrypted by U-Boot into RAM) and the stock software version',
+    f'{PRODUCT} data and Android logs on the stock data partition',
+]
+
+
+def cmd_diag(args):
+    manifest = release_files(args.images)
+    folder = HERE / 'diag' / datetime.now().strftime('%Y-%m-%d-%H%M%S')
+    folder.mkdir(parents=True)
+    lines = []
+
+    def note(text=''):
+        say(text)
+        lines.append(text)
+
+    def section(n, fn):
+        step(n)
+        lines.append(f'== {STEPS[n - 1]}')
+        try:
+            fn()
+        except Exception as e:     # a failed part must not stop the other parts
+            note(f'  could not read this part: {type(e).__name__}: {e}')
+
+    overview(f'{PRODUCT} {manifest["version"]}: diagnostic. Steps:', DIAG_STEPS)
+    note(f'Folder: {folder}')
+    step(1)
+    sbd = load_tools()
+    step(2)
+    dev, trusted, entries = connect(sbd, strict=False)
+    state = {}
+
+    def part3():
+        env = read_env(dev)
+        state['env'] = env
+        (folder / 'env.txt').write_text(''.join(f'{k}={v}\n' for k, v in env.items()))
+        table = ''.join(f'{n:10s} {o / MIB:9.2f} MiB {(f"{z / MIB:9.2f} MiB" if z < 2**40 else " to the end")}\n'
+                        for n, (o, z) in sorted(entries.items(), key=lambda e: e[1][0]))
+        (folder / 'mpt.txt').write_text(table)
+        layout = layout_of(entries)
+        note(f'  partition table: {"own U-Boot" if trusted else "can be from a U-Boot in RAM"}, '
+             f'{table_kind(entries)}, system_b {"where the tool writes" if layout == "ok" else layout}')
+        bootcmd = env.get('bootcmd')
+        note('  boot command: ' + ('installed by this tool' if bootcmd == BOOTCMD and env.get('cpt_boot') == CPT_BOOT
+                                   else 'stock' if bootcmd == BOOTCMD_STOCK else f'other: {bootcmd!r}'))
+        for key in ('active_slot', 'panel_type', 'outputmode', 'display_init', 'firstboot', 'fb_addr'):
+            note(f'  {key}={env.get(key)!r}')
+        note(f'  preset-4 burn mode: {"yes" if BURN_BUTTON.strip() in env.get("storeargs", "") else "no"}')
+        note(f'  eMMC user area: {user_area_size(dev) // MIB} MiB')
+
+    def part4():
+        for label, offset, size, expected in (
+                ('system', SYSTEM_B[0], manifest['image_size'], manifest['final_sha256']),
+                ('boot area', SYSTEM_B[0] + BOOT_AREA_OFFSET, BOOT_AREA_SIZE, manifest['boot_area_sha256'])):
+            h, done, bar = hashlib.sha256(), 0, Progress(label, size)
+            while done < size:
+                part = min(BLOCK, size - done)
+                data = dev.read(offset + done, part)
+                if data is None:
+                    raise IOError(f'read failed at {hex(offset + done)}')
+                h.update(data)
+                done += part
+                bar.update(done)
+            same = h.hexdigest() == expected
+            bar.end(f'{size // MIB} MiB')
+            note(f'  {label}: ' + (f'the same as {PRODUCT} {manifest["version"]}' if same else
+                                   f'NOT the same as {PRODUCT} {manifest["version"]} (SHA-256 {h.hexdigest()[:16]}...)'))
+
+    def part5():
+        if layout_of(entries) != 'ok':
+            note('  skipped: the partition table in RAM does not show boot_a where it is')
+        elif not dev.command('imgread dtb boot_a 0x1000000', MMC_TIMEOUT):
+            note('  imgread dtb boot_a failed')
+        else:
+            blob = dev.read_ram(0x1000000, MIB)
+            if not blob or blob[:4] != b'\xd0\x0d\xfe\xed':
+                note('  no device tree in RAM after imgread')
+            else:
+                blob = blob[:struct.unpack_from('>I', blob, 4)[0]]
+                (folder / 'boot_a.dtb').write_bytes(blob)
+                nodes = fdt_nodes(blob)
+                text = lambda v: v.split(b'\0')[0].decode(errors='replace') if v else None
+                root = nodes.get('/', {})
+                parts = [text(v.get('pname')) for k, v in nodes.items() if k.startswith('/partitions/') and 'pname' in v]
+                note(f'  boot_a.dtb: {len(blob)} bytes, model {text(root.get("model"))!r}, '
+                     f'amlogic-dt-id {text(root.get("amlogic-dt-id"))!r}')
+                note(f'  device-tree partitions: {", ".join(parts)}')
+                panels = sorted(k.split('/')[-1] for k in nodes if k.startswith('/lcd/lcd_'))
+                note(f'  panel nodes: {", ".join(panels)}')
+        root = Ext4(ChunkReader(dev, SYSTEM_A_OFFSET))
+        for path in ('etc/superbird/version', 'etc/sw-versions', 'usr/lib/os-release'):
+            ino = root.lookup(path)
+            value = root.read_file(ino, 400).decode(errors='replace').strip() if ino and not is_dir(ino) else 'not there'
+            note(f'  stock /{path}: ' + ' | '.join(l for l in value.splitlines() if l.strip())[:300])
+        hcd = root.lookup('lib/firmware/brcm/BCM20703A2.hcd')
+        note('  stock Bluetooth firmware: ' + (f'{hcd["size"]} bytes' if hcd else 'NOT there (PlayThing needs it)'))
+
+    def part6():
+        outer = Ext4(ChunkReader(dev, DATA_OFFSET))
+        note(f'  stock data file system: label {outer.label!r}, {"clean" if outer.clean else "not clean"}, '
+             f'last mount {utc(outer.mount_time)}, last write {utc(outer.write_time)}')
+        top = outer.lookup(DATA_FOLDER)
+        if top is None or not is_dir(top):
+            note(f'  no folder {DATA_FOLDER}/: {PRODUCT} never started far enough to make its /data '
+                 '(data-setup.sh), or /data is in RAM')
+            return
+        listing = []
+        for name, n in sorted(outer.listdir(top).items()):
+            if name in ('.', '..'):
+                continue
+            ino = outer.inode(n)
+            listing.append(f'{name}  {ino["size"]} bytes  {utc(ino["mtime"])}')
+        note(f'  folder {DATA_FOLDER}/: ' + ('; '.join(listing) or 'empty'))
+        img = outer.lookup(f'{DATA_FOLDER}/userdata.img')
+        if img is None:
+            note('  no userdata.img: /data was in RAM or was never made')
+            return
+        inner = Ext4(FileSource(outer, img))
+        note(f'  /data file system: label {inner.label!r}, last mount {utc(inner.mount_time)}, '
+             f'last write {utc(inner.write_time)}'
+             + (' (the journal was not replayed: the last seconds can be missing)' if inner.journal_needs_recovery else ''))
+        copied = 0
+        for path in ('misc/logd', 'tombstones', 'anr', 'misc/bootstat'):
+            d = inner.lookup(path)
+            if d is None or not is_dir(d):
+                note(f'  /data/{path}: not there')
+                continue
+            entries_d = {n: i for n, i in inner.listdir(d).items() if n not in ('.', '..')}
+            note(f'  /data/{path}: {len(entries_d)} files')
+            out = folder / 'data' / path
+            out.mkdir(parents=True, exist_ok=True)
+            for name in sorted(entries_d):
+                ino = inner.inode(entries_d[name])
+                if is_dir(ino) or ino['size'] > 4 * MIB:
+                    continue
+                (out / name).write_bytes(inner.read_file(ino))
+                copied += ino['size']
+        note(f'  copied {copied // 1024} KiB of logs to {folder / "data"}')
+
+    section(3, part3)
+    section(4, part4)
+    section(5, part5)
+    section(6, part6)
+    dev.close()
+    (folder / 'summary.txt').write_text('\n'.join(lines) + '\n')
+    say()
+    say(f'DONE. Nothing was written to the Car Thing. The diagnostic folder: {folder}')
+    say('  summary.txt, env.txt, mpt.txt, boot_a.dtb: no personal data, you can post them.')
+    say('  data/: Android logs with device data (Bluetooth addresses, device names): share it only privately.')
 
 
 def cmd_install(args):
@@ -925,6 +1286,7 @@ def main():
     p.add_argument('backup', help='backup folder of the first install (backups/...)')
     sub.add_parser('prepare', help='only make the image, no device')
     sub.add_parser('check', help="read the Car Thing's state, write nothing")
+    sub.add_parser('diag', help='collect a diagnostic folder (diag/), write nothing')
     args = parser.parse_args()
     if sys.platform not in ('darwin', 'linux'):
         stop('this tool runs on macOS and Linux only. Windows is not supported: use a Mac or a Linux '
@@ -934,7 +1296,7 @@ def main():
     if args.command != 'prepare':
         bootstrap()
     {'install': cmd_install, 'restore': cmd_restore, 'prepare': cmd_prepare,
-     'check': cmd_check}[args.command](args)
+     'check': cmd_check, 'diag': cmd_diag}[args.command](args)
 
 
 if __name__ == '__main__':

@@ -53,6 +53,7 @@ Windows is not supported: the tool stops at the start. Use a Mac or a Linux comp
 | `install` | first install from the stock software, or an update of PlayThing or superbird-android |
 | `restore BACKUP` | writes the stock boot command and the backed-up `system_b` back |
 | `check` | shows the partition table (each partition with offset and size), the env, and the eMMC size; writes nothing |
+| `diag` | makes a diagnostic folder `diag/<time>/`; writes nothing (see below) |
 | `prepare` | only makes the finished image (`work/system.raw`); no device |
 
 Before its first run, the tool makes a Python environment (`.venv`: pyusb and pyamlboot at
@@ -98,6 +99,24 @@ already written). `restore` also finishes an earlier restore that stopped.
 
 The tool uses one USB handle to the device: a second handle makes the U-Boot commands collide,
 and U-Boot then stops answering until a power cycle.
+
+## Diagnostic folder (`diag`)
+
+`python3 flash.py diag` (preset 4 is best) reads, and writes nothing to the eMMC:
+
+| File | Content |
+|---|---|
+| `summary.txt` | everything below in short, as the tool shows it |
+| `env.txt`, `mpt.txt` | the U-Boot env and the partition table |
+| (in `summary.txt`) | the SHA-256 check of the installed image and boot area against the release |
+| `boot_a.dtb` | the stock device tree: U-Boot decrypts it into RAM (`imgread dtb boot_a`), and the tool reads the RAM over USB |
+| (in `summary.txt`) | the stock software version (`/etc/superbird/version` in `system_a`) and the Bluetooth firmware |
+| `data/` | from `userdata.img` on the stock data partition: `misc/logd` (Android and kernel logs), `tombstones`, `anr`, `misc/bootstat` |
+
+For `data/` the tool reads two ext4 file systems over USB: the stock data partition, and the
+ext4 image `plaything/userdata.img` in it. The journal is not replayed, so the last seconds
+before a power cut can be missing. `data/` has device data (Bluetooth addresses, device names);
+the other files have none.
 
 ## Coming from another firmware
 
