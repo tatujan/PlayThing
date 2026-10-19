@@ -59,7 +59,7 @@ NUM_FRAMEBUFFER_SURFACE_BUFFERS := 3
 # configstore service (android.hardware.configstore@1.1-service), not ro.sf.hwrotation.
 SF_PRIMARY_DISPLAY_ORIENTATION := 90
 
-# HWC: our hwcomposer.superbird (hwcomposer/). App buffers come from the ION system heap
+# HWC: hwcomposer.superbird of this device folder (hwcomposer/). App buffers come from the ION system heap
 # (not contiguous), and the OSD has no IOMMU and cannot rotate, so SurfaceFlinger composes
 # all layers with the GPU into the frame buffer target (CMA), and the HWC shows that target.
 

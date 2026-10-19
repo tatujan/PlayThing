@@ -39,8 +39,7 @@ repository. This folder has the image and the flash tool.
 > **Warning: use at your own risk.** This replaces the software on your Car Thing. It comes
 > "as is", with no warranty of any kind. The authors are not responsible for any damage: a Car
 > Thing that does not start ("bricked"), lost data, damage to other equipment, or any other
-> loss. It was tested on one Car Thing only (S905D2, 512 MiB RAM, ST7701S panel); your unit can
-> be different. Keep the backup that the tool makes. Do not use the Car Thing in a way that
+> loss. {tested_short}; your unit can be different. Keep the backup that the tool makes. Do not use the Car Thing in a way that
 > takes your attention from the road while you drive.
 
 ## What is inside
@@ -310,8 +309,13 @@ def main():
     downloads = '\n'.join(f'   - {f["what"]}' for f in blobs_json['files'])
     diplay_update = thanks = ''
     status = ''
+    if any(f['name'] == 'DiPlay.apk' for f in blobs_json['files']):
+        tested_short = 'It was tested on two Car Things (S905D2, 512 MiB RAM; an older and a newer board revision)'
+    else:
+        tested_short = ('It was tested on one Car Thing (S905D2, 512 MiB RAM); PlayThing, the same base, '
+                        'also on a newer board revision')
     if 'beta' in args.version:
-        status = ('\n**Beta version.** It is tested on one Car Thing only, and it has known issues '
+        status = (f'\n**Beta version.** {tested_short}, and it has known issues '
                   '(`docs/known-issues.md`\nin the repository).\n')
     if any(f['name'] == 'DiPlay.apk' for f in blobs_json['files']):
         apps = 'CarPlay with DiPlay (downloaded by the tool), a home screen, and a minimal keyboard.'
@@ -322,7 +326,7 @@ def main():
                                                     folder=flash.DATA_FOLDER, licenses=licenses,
                                                     downloads=downloads, apps=apps,
                                                     diplay_update=diplay_update, thanks=thanks,
-                                                    status=status))
+                                                    status=status, tested_short=tested_short))
     sums = ''.join(f'{flash.sha256_file(p)}  {p.name}\n' for p in sorted(folder.iterdir()))
     (folder / 'SHA256SUMS').write_text(sums)
     print(sums)

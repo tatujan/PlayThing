@@ -34,7 +34,7 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/diplay/diplay-setup.sh:$(TARGET_COPY_OUT_VENDOR)/bin/diplay-setup.sh \
     $(LOCAL_PATH)/diplay/carplay-home-icon.png:$(TARGET_COPY_OUT_VENDOR)/etc/diplay/carplay-home-icon.png
 
-# Graphics: Mali r16p0 blob, Mali gralloc, our HWC (docs/graphics.md).
+# Graphics: Mali r16p0 blob, Mali gralloc, the HWC of this device folder (docs/graphics.md).
 PRODUCT_PACKAGES += \
     libGLES_mali \
     gralloc.aosp_superbird \

@@ -109,8 +109,9 @@ writes the real table back. Thus:
   `0x3120b000` (`docs/release.md`, "Partition table check");
 - do not RAM-boot a kernel after a mask-ROM entry without a normal start first.
 
-The newer layout is from the public peek corpus and superbird-tool's partition list; I tested
-PlayThing only on a Car Thing with the older U-Boot.
+The newer layout is from the public peek corpus and superbird-tool's partition list, and a
+user's `diag` confirmed it. PlayThing works on both kinds: on my unit with the older U-Boot, and
+on a user's unit with the newer U-Boot (board revision 4, stock software v8.2.5).
 
 | Partition | Offset | Size |
 |---|---|---|

@@ -1,7 +1,7 @@
 # PlayThing
 
-**Status: beta** (version 0.1.0-beta.5). It is tested on one Car Thing only, and it has known
-issues (`docs/known-issues.md`).
+**Status: beta** (version 0.1.0-beta.5). It is tested on two Car Things (an older and a newer board revision), and it has known issues
+(`docs/known-issues.md`).
 
 Android 9 on the Spotify Car Thing, as a wired Apple CarPlay receiver. An iPhone connects to the
 Car Thing through a USB hub, and CarPlay shows on the panel. The CarPlay app is
@@ -19,8 +19,8 @@ A version without DiPlay and the home screen, as a base for other Android apps:
 > **Warning: use at your own risk.** This software replaces the software on your Car Thing.
 > It comes "as is", with no warranty of any kind (see `LICENSE`). The authors are not
 > responsible for any damage: a Car Thing that does not start ("bricked"), lost data, damage to
-> other equipment, or any other loss. I tested it on one Car Thing only (S905D2, 512 MiB RAM,
-> ST7701S panel); your unit can be different. Read the safety rules below, make the backup that
+> other equipment, or any other loss. I tested it on my Car Thing (S905D2, 512 MiB RAM, ST7701S
+> panel), and one user on a newer unit (board revision 4); your unit can be different. Read the safety rules below, make the backup that
 > the flash tool offers, and keep it. Do not use the Car Thing in a way that takes your
 > attention from the road while you drive. This project is not affiliated with Spotify, Apple,
 > or Google.
@@ -237,3 +237,17 @@ DiPlay, PlayThing would not exist. Thank you!
 
 DiPlay is a separate project with its own license (GPL-3.0, with AGPL-3.0 parts). PlayThing
 downloads its release APK and does not change it.
+
+This project also builds on the work of others:
+
+- [thinglabsoss/superbird-tool](https://github.com/thinglabsoss/superbird-tool): `flash.py` uses
+  its USB code and its USB burn-mode U-Boot.
+- [Hardkernel's ODROID-C4 Android 9 port](https://github.com/codewalkerster?tab=repositories)
+  (codewalkerster): the Mali r16p0 driver and kbase, the Mali gralloc, and the video decoder
+  firmware and modules.
+- [Spotify's source code releases](https://github.com/spsgsb): the Car Thing's Linux kernel and
+  U-Boot.
+- [thinglabsoss/peek-corpus](https://github.com/thinglabsoss/peek-corpus): hardware captures of
+  other Car Things.
+
+Thank you!

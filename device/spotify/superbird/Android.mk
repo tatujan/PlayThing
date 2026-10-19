@@ -37,7 +37,7 @@ LOCAL_REPLACE_PREBUILT_APK_INSTALLED := vendor/plaything/diplay/DiPlay.apk
 include $(BUILD_PREBUILT)
 
 # PlayThing home screen and keyboard. Make does not look below a folder that has
-# its own Android.mk, so include them here. Each sets LOCAL_PATH to its own folder, so keep ours.
+# its own Android.mk, so include them here. Each sets LOCAL_PATH to its own folder, so keep this one.
 SUPERBIRD_DEVICE_DIR := $(LOCAL_PATH)
 include $(SUPERBIRD_DEVICE_DIR)/apps/CptHome/Android.mk
 include $(SUPERBIRD_DEVICE_DIR)/apps/CptKeyboard/Android.mk

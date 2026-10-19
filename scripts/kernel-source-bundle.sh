@@ -2,7 +2,7 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The source code of the GPL-2.0 kernel parts in the boot area and the image (docs/release.md):
-# the Spotify kernel tree with our patches, its build configuration, the Mali kbase module
+# the Spotify kernel tree with the patches of this repository, its build configuration, the Mali kbase module
 # (r16p0), and the Amlogic decoder modules (media_modules 810d965), as they were built.
 # Run it in the kernel container after the kernel, kbase, and decoder module builds:
 #   scripts/kernel.sh /plaything/scripts/kernel-source-bundle.sh

@@ -10,5 +10,5 @@
 /dev/block/zram[0-9]+       u:object_r:swap_block_device:s0
 # The stock data partition: data-setup.sh keeps the persistent /data image on it.
 /dev/block/data             u:object_r:cpt_stock_data_block_device:s0
-# Our folder in the stock data file system (data-setup.sh): init labels it after the mount.
+# The plaything folder in the stock data file system (data-setup.sh): init labels it after the mount.
 /mnt/vendor/cpt-stock/plaything(/.*)?    u:object_r:cpt_stock_data_file:s0

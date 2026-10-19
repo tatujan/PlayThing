@@ -667,7 +667,7 @@ void SoftCptAVC::drain(int waitMs) {
             return;
         }
         if (mPendingCapture >= 0 && getPortQueue(kOutputPortIndex).empty()) {
-            // A frame waits for an output buffer; the client's next buffer calls us again.
+            // A frame waits for an output buffer; the client's next buffer calls this component again.
             return;
         }
         nsecs_t left = deadline - systemTime();

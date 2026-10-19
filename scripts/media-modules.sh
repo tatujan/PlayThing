@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Build the Amlogic media_modules decoder modules (docs/video.md) for our kernel.
+# Build the Amlogic media_modules decoder modules (docs/video.md) for the kernel of this repository.
 # Run in the kernel container after the "android" kernel build:
 #   scripts/kernel.sh /plaything/scripts/media-modules.sh
 #

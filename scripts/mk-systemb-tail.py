@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Build the boot area at the end of the system_b region (the last 32 MiB).
 
-The stock U-Boot boots our Android from the eMMC with these files. The env holds only a
+The stock U-Boot boots this Android from the eMMC with these files. The env holds only a
 small loader (cpt_boot): it reads the variables text from this area, imports it into the
 RAM env (env import -t, no save), and runs cpt_script. Thus later changes to the boot
 steps are system_b writes, not env writes. U-Boot here has no "source" and no "unzip",

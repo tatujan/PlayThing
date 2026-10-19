@@ -24,7 +24,7 @@ STOCK=/dev/block/data
 SYS=/sys/class/block/data
 # The stock layout (docs/boot.md): offset 0x63616000 (sector 3256496). Another start
 # means a shifted partition table (superbird-tool U-Boot, 24 MiB too far): then write nothing.
-# The size depends on the eMMC (ours: 2292097024 bytes); it must hold the image and more.
+# The size depends on the eMMC (2292097024 bytes on the eMMC of 3776 MiB); it must hold the image and more.
 START=3256496
 MIN_SECTORS=3145728
 # Under /mnt/vendor: at its start, vold force-unmounts all other mounts under /mnt. It cannot

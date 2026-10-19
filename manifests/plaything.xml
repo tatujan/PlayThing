@@ -4,7 +4,7 @@
   SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <!-- Donor project for the AOSP Pie tree (docs/graphics.md): the Mali gralloc. The revision is pinned.
-     The HWC is our own (device/spotify/superbird/hwcomposer).
+     The HWC is part of this repository (device/spotify/superbird/hwcomposer).
      scripts/aosp-prepare.sh copies this file to /aosp/.repo/local_manifests/. -->
 <manifest>
   <remote name="github" fetch="https://github.com/" />

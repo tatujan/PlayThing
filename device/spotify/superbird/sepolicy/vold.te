@@ -1,7 +1,7 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 # vold checks each loop device at start (Loop::destroyAll, LOOP_GET_STATUS64); the kernel
-# then reads the attributes of the backing file. For /data that is our image on the stock
+# then reads the attributes of the backing file. For /data that is the image file on the stock
 # data partition (data-setup.sh). vold leaves the device alone (not "vold#"), but without
 # this rule the denial comes at each boot.
 allow vold cpt_stock_data_file:file getattr;

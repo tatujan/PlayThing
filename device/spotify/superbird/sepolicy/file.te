@@ -6,7 +6,7 @@ type sysfs_cpt_firmware_path, fs_type, sysfs_type;
 type sysfs_cpt_display, fs_type, sysfs_type;
 # The display folders had the generic sysfs type, which all domains may search; keep that.
 allow domain sysfs_cpt_display:dir search;
-# The stock data partition (data-setup.sh), and our folder in its file system (file_contexts;
+# The stock data partition (data-setup.sh), and the plaything folder in its file system (file_contexts;
 # the rest of it has no labels).
 type cpt_stock_data_block_device, dev_type;
 type cpt_stock_data_file, file_type;

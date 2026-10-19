@@ -18,7 +18,7 @@
  * Vsync: the driver's wait-for-vsync ioctl gives the CLOCK_MONOTONIC time of each vsync.
  * Panel size and frame rate: /sys/class/display/vinfo (the vout driver).
  *
- * The kernel interface below is our own description of the driver's ABI (osd.h,
+ * The kernel interface below is a new description of the driver's ABI (osd.h,
  * osd_sync.h, osd_fb.h of that kernel).
  */
 #define LOG_TAG "hwc_superbird"

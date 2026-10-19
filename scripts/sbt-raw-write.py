@@ -7,7 +7,7 @@ THIS IS A FLASH. Use it only after the user approved the exact command
 (README.md, "Safety rules").
 
 superbird-tool writes by partition name, and its burn-mode U-Boot uses a
-partition table that does not match our unit (docs/boot.md). This script
+partition table that does not match the real layout (docs/boot.md). This script
 writes by raw sector numbers instead. For each block of the file:
   1. It reads the eMMC block ("mmc read" into RAM, then "upload mem").
      If the block already has the file data, it skips the block.

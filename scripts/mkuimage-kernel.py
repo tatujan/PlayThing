@@ -8,7 +8,7 @@ its load address. The uncompressed Image (about 16 MB) plus the ramdisk does not
 into the 16 MiB boot_b region, and Image.gz (about 6 MB) does.
 
 Header: OS Linux (5), arch arm64 (22), type kernel (2), compression gzip (1),
-load and entry address 0x1080000 (the address that our RAM boots use).
+load and entry address 0x1080000 (the address that the RAM boots use).
 
 Usage: python3 scripts/mkuimage-kernel.py IMAGE_GZ OUT_UIMAGE [NAME]
 """

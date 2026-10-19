@@ -48,7 +48,7 @@ allow cpt_data_setup loop_control_device:chr_file rw_file_perms;
 allow cpt_data_setup loop_device:blk_file rw_file_perms;
 # discard_max_bytes of the loop device
 allow cpt_data_setup sysfs:file w_file_perms;
-# The stock file system has no labels (unlabeled). init labels only our folder in it.
+# The stock file system has no labels (unlabeled). init labels only the plaything folder in it.
 # losetup and umount (toybox) open each folder of the path to get the real path: / (rootfs),
 # /mnt (tmpfs), /mnt/vendor, and the root of the stock file system.
 allow cpt_data_setup { rootfs tmpfs mnt_vendor_file unlabeled }:dir r_dir_perms;

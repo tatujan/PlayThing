@@ -56,7 +56,7 @@ done
 rm -rf device/spotify/superbird-firmware
 
 echo "== hardware video decoder"
-# Amlogic media_modules for our kernel (scripts/media-modules.sh makes them in
+# Amlogic media_modules for the kernel of this repository (scripts/media-modules.sh makes them in
 # /out/media-modules). They must come from the same kernel build as the boot area kernel.
 mkdir -p device/spotify/superbird-media
 rm -f device/spotify/superbird-media/*

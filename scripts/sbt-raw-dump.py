@@ -4,7 +4,7 @@
 """Dump a raw byte range of the Car Thing eMMC to a file.
 
 superbird-tool dumps by partition name, and its burn-mode U-Boot uses a
-partition table that does not match our unit (docs/boot.md). This
+partition table that does not match the real layout (docs/boot.md). This
 script uses raw sector offsets instead. For each block, it runs "mmc read"
 into a RAM buffer, then "upload mem" (the fast AMLC upload protocol of
 superbird-tool) to read the buffer over USB. With --slow, it reads the

@@ -2,7 +2,7 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 # The source code of the GPL and LGPL parts of AOSP that are in the image (docs/release.md), as
-# they were built: the working trees of these projects (with our patches). The list comes from
+# they were built: the working trees of these projects (with the patches of this repository). The list comes from
 # the "gnu" tag in out/target/product/superbird/module-info.json and from the GPL texts in the
 # image's NOTICE.html; libcore and the art JVMTI/JDWP parts are GPL-2.0 with the Classpath
 # exception. All other AOSP source: android.googlesource.com, tag android-security-9.0.0_r76.

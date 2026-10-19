@@ -19,7 +19,7 @@ cp "$KERNEL_OUT/arch/arm64/boot/Image" "$DST/android/Image"
 cp "$KERNEL_OUT/arch/arm64/boot/dts/amlogic/superbird_evt_512.dtb" "$DST/superbird.dtb"
 # The Spotify DTB has an Android early-mount node (firmware_ab.dtsi): /system with
 # "slotselect" and AVB vbmeta. Android 9 init reads it in its first stage, before
-# fstab.superbird, and our boot has no slot suffix and no vbmeta. Our /system is a
+# fstab.superbird, and this boot has no slot suffix and no vbmeta. Its /system is a
 # late mount (fstab.superbird), so remove the node.
 fdtput -r "$DST/superbird.dtb" /firmware/android
 # Touch: the controller reports portrait coordinates. Android 9 rotates only the display,

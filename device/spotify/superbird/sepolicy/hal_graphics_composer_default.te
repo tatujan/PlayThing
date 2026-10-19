@@ -1,6 +1,6 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Our HWC (hwcomposer/hwcomposer.cpp) reads the panel size and frame rate from
+# The HWC (hwcomposer/hwcomposer.cpp) reads the panel size and frame rate from
 # /sys/class/display/vinfo. AOSP allows /dev/graphics/fb0 and CAP_SYS_NICE.
 allow hal_graphics_composer_default sysfs_cpt_display:dir r_dir_perms;
 allow hal_graphics_composer_default sysfs_cpt_display:file r_file_perms;

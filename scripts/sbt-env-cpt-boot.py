@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Make our Android (system_b boot area) the default boot of the stock U-Boot, or undo it.
+"""Make the Android of this repository (system_b boot area) the default boot of the stock U-Boot, or undo it.
 
 THIS IS A FLASH (env write). Read README.md, "Safety rules", first.
 
