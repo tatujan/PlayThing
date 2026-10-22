@@ -71,9 +71,11 @@ storeargs=<stock value> if gpio input GPIOA_3; then run update; fi;
      `KEY_MUTE` (`docs/input.md`);
    - USB host mode: the USB-C port becomes a host with power in (`docs/hardware.md`).
 3. Read the kernel and the ramdisk from the boot area, set `bootargs`
-   (`scripts/ramboot/env-android.txt`: `androidboot.hardware=superbird`, panel and display
-   settings from the stock env, `zram.num_devices=2`, `loglevel=4`), delete
-   `androidboot.dtbo_idx` in the RAM env, and `booti`.
+   (`scripts/ramboot/env-android.txt`: `androidboot.hardware=superbird`, display settings from
+   the stock env, `zram.num_devices=2`, `loglevel=4`), delete `androidboot.dtbo_idx` in the RAM
+   env, and `booti`. `panel_type` comes from the unit's own env (`lcd_8` on most units; other
+   panels have other values): `cpt_args` sets `bootargs` through `run`, because U-Boot expands a
+   variable only once; without `panel_type` in the env, the script sets `lcd_8` in RAM.
 
 **Device-tree overlays.** The newer Spotify U-Boot applies the overlays of `dtbo_a` at `booti`
 when the env has `androidboot.dtbo_idx` (`common/bootm.c`, `do_fdt_overlay`, in Spotify's U-Boot

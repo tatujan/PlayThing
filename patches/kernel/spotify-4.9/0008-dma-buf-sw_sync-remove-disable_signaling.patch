@@ -1,0 +1,45 @@
+From: PlayThing builder <builder@localhost>
+Date: Thu, 22 Oct 2026 12:00:00 +0000
+Subject: [PATCH] dma-buf/sw_sync: remove disable_signaling
+
+This tree has the rb-tree version of sw_sync (Linux 4.14), but it kept the
+disable_signaling callback of the old version. That callback removes a sync_pt
+from pt_list, but not from pt_tree. Two failures follow:
+
+- The timeline signals only the points in pt_list, so the fence does not
+  signal any more, and a later waiter waits until its timeout.
+- timeline_fence_release() removes a point from pt_tree only when the point is
+  in pt_list. Thus the freed point stays in pt_tree, and the next
+  sync_pt_create() reads freed memory. The OSD driver (osd_timeline_0) makes
+  its out-fences on this timeline: a restart of SurfaceFlinger closes polled,
+  unsignaled out-fences and caused "Unable to handle kernel paging request" in
+  sync_pt_create() from osd_ioctl(), then a kernel panic.
+
+Linux 4.14 and later have no disable_signaling for sw_sync; do the same. A
+point then stays in pt_list until it signals or until its release removes it
+from the list and the tree.
+---
+--- a/drivers/dma-buf/sw_sync.c
++++ b/drivers/dma-buf/sw_sync.c
+@@ -169,13 +169,6 @@
+ 	return true;
+ }
+ 
+-static void timeline_fence_disable_signaling(struct fence *fence)
+-{
+-	struct sync_pt *pt = container_of(fence, struct sync_pt, base);
+-
+-	list_del_init(&pt->link);
+-}
+-
+ static void timeline_fence_value_str(struct fence *fence,
+ 				    char *str, int size)
+ {
+@@ -194,7 +187,6 @@
+ 	.get_driver_name = timeline_fence_get_driver_name,
+ 	.get_timeline_name = timeline_fence_get_timeline_name,
+ 	.enable_signaling = timeline_fence_enable_signaling,
+-	.disable_signaling = timeline_fence_disable_signaling,
+ 	.signaled = timeline_fence_signaled,
+ 	.wait = fence_default_wait,
+ 	.release = timeline_fence_release,

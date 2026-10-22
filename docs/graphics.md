@@ -38,9 +38,13 @@ SurfaceFlinger waits for it, and the screen shows noise after the logo.
 - **Validate:** every layer becomes `CLIENT`.
 - **Present:** the frame buffer driver's sync-render ioctl (`0x4519`, single-layer mode, direct
   compose) on `/dev/graphics/fb0`. It takes the client target's dma-buf, waits for the acquire
-  fence, scans the buffer out with no copy, and returns a fence that signals after the vsync that
-  shows the buffer. That fence is the present fence; SurfaceFlinger releases the previous client
-  target with it. The kernel closes the acquire fence that it gets, so the HWC gives it a copy.
+  fence, scans the buffer out with no copy, and returns an out-fence. The out-fence signals when
+  the driver shows the next request (it releases this buffer), so the HWC gives SurfaceFlinger
+  the out-fence of the previous request as the present fence: it signals when this frame shows.
+  SurfaceFlinger releases the previous client target with it. (With the request's own
+  out-fence, SurfaceFlinger stopped when an app restarted: a frame without layers makes it wait
+  for the previous present fence before the next frame, and that fence waited for the next
+  frame.) The kernel closes the acquire fence that it gets, so the HWC gives it a copy.
 - **Vsync:** a thread waits with `FBIO_WAITFORVSYNC_64` (the vsync time, CLOCK_MONOTONIC).
 - **Display attributes:** from `/sys/class/display/vinfo`: 52 × 86 mm (DPI 234.5 × 236.3),
   60 Hz.

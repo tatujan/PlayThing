@@ -105,8 +105,13 @@ def main():
     bootargs = ' '.join(t for t in bootargs.split(' ') if not t.startswith('androidboot.selinux='))
     if args.selinux == 'permissive':
         bootargs += ' androidboot.selinux=permissive'
+    # The panel type comes from the unit's own env (lcd_8 on most units; others have other
+    # panels). U-Boot expands a variable only once, so cpt_args sets bootargs through "run",
+    # which expands ${panel_type} then. Without panel_type in the env, lcd_8 (RAM only).
+    assert bootargs.count(' panel_type=lcd_8 ') == 1
+    bootargs = bootargs.replace(' panel_type=lcd_8 ', ' panel_type=${panel_type} ')
     lines = [
-        'cpt_bootargs=' + bootargs[len('bootargs='):],
+        'cpt_args=setenv bootargs ' + bootargs[len('bootargs='):],
         'cpt_dt=' + '; '.join(DT_EDITS),
         'cpt_keys=' + '; '.join(KEY_EDITS),
         'cpt_host=' + '; '.join(HOST_EDITS),
@@ -120,7 +125,8 @@ def main():
         'cpt_script=imgread dtb boot_a 0x1000000; run cpt_dt; run cpt_keys; run cpt_mode; '
         f'mmc dev 1 0; mmc read 0x1080000 {hex(ksec)} {hex(sectors(len(kernel)))}; '
         f'mmc read 0x13000000 {hex(rsec)} {hex(sectors(len(ramdisk)))}; '
-        'setenv bootargs ${cpt_bootargs}; setenv androidboot.dtbo_idx; '
+        'test -n "${panel_type}" || setenv panel_type lcd_8; run cpt_args; '
+        'setenv androidboot.dtbo_idx; '
         'booti 0x1080000 0x13000000 0x1000000',
     ]
     text = ('\n'.join(lines) + '\n').encode()

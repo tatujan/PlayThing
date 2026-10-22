@@ -109,6 +109,7 @@ and U-Boot then stops answering until a power cycle.
 | `summary.txt` | everything below in short, as the tool shows it |
 | `env.txt`, `mpt.txt` | the U-Boot env and the partition table |
 | (in `summary.txt`) | the SHA-256 check of the installed image and boot area against the release |
+| (in `summary.txt`) | Android's bootloader message in `misc` (a recovery or boot command that waits for the next start), and the kind of file system on the stock data partition (ext4, or another firmware's) |
 | `boot_a.dtb` | the stock device tree: U-Boot decrypts it into RAM (`imgread dtb boot_a`), and the tool reads the RAM over USB |
 | `dtbo_a.img` | the overlay partition; `summary.txt` lists what each overlay changes, and the env value `androidboot.dtbo_idx` |
 | (in `summary.txt`) | the stock software version (`/etc/superbird/version` in `system_a`) and the Bluetooth firmware |

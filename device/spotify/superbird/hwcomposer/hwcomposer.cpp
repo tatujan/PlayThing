@@ -11,9 +11,13 @@
  *
  * Display: the frame buffer driver of the Spotify 4.9 kernel (drivers/amlogic/media/osd).
  * Its "sync render" ioctl takes the client target's dma-buf, waits for the acquire fence,
- * scans the buffer out directly (no copy), and gives a fence that signals after the next
- * vsync. That fence is the present fence. SurfaceFlinger uses it to release the previous
- * client target. The client target comes from the ION DMA heap (contiguous), because the
+ * scans the buffer out directly (no copy), and gives an out-fence. The out-fence signals when
+ * the driver shows the NEXT request (it releases this buffer), so it is not a present fence.
+ * The out-fence of the previous request signals when this request shows: that fence is the
+ * present fence of this frame. SurfaceFlinger uses it to release the previous client target.
+ * (With the request's own out-fence, a frame without layers, while an app restarts, stopped
+ * SurfaceFlinger: it waits for the previous present fence before it shows the next frame.)
+ * The client target comes from the ION DMA heap (contiguous), because the
  * gralloc gives GRALLOC_USAGE_HW_FB buffers that heap.
  * Vsync: the driver's wait-for-vsync ioctl gives the CLOCK_MONOTONIC time of each vsync.
  * Panel size and frame rate: /sys/class/display/vinfo (the vout driver).
@@ -130,6 +134,7 @@ struct Hwc : hwc2_device_t {
     bool validated = false;
     buffer_handle_t clientTarget = nullptr;
     int clientAcquireFence = -1;
+    int lastOutFence = -1;  // out-fence of the last request: signals when the next one shows
     int32_t powerMode = HWC2_POWER_MODE_ON;
     uint64_t frames = 0;
     uint64_t failures = 0;
@@ -480,7 +485,10 @@ int32_t presentDisplay(hwc2_device_t* device, hwc2_display_t display,
         return HWC2_ERROR_NONE;
     }
     hwc->frames++;
-    *outPresentFence = request.outFenceFd;
+    // The present fence of this frame is the out-fence of the previous request (see the top of
+    // this file). SurfaceFlinger owns the fd that it gets. The first frame has none.
+    *outPresentFence = hwc->lastOutFence;
+    hwc->lastOutFence = request.outFenceFd;
     return HWC2_ERROR_NONE;
 }
 
@@ -730,6 +738,7 @@ void destroy(Hwc* hwc) {
         hwc->vsyncThread.join();
     }
     closeFence(hwc->clientAcquireFence);
+    closeFence(hwc->lastOutFence);
     if (hwc->gralloc) gralloc1_close(hwc->gralloc);
     if (hwc->fbFd >= 0) close(hwc->fbFd);
     delete hwc;

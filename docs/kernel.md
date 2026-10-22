@@ -43,6 +43,7 @@
 | 0005 rotary-encoder: key codes per step | With `linux,key-codes = <ccw cw>`, each knob step is one key press (Android does not turn wheel events into keys). |
 | 0006 v4l_util: select `VIDEOBUF_GEN` | Without it, the kernel does not link with the decoder options. |
 | 0007 xHCI: "no TDs queued" as a debug message | DiPlay cancels USB bulk reads often; the warning filled the kernel log (about 300 lines per second). |
+| 0008 sw_sync: no `disable_signaling` | The tree has the rb-tree `sw_sync` of Linux 4.14 but kept the old `disable_signaling`. A fence whose last waiter went away then did not signal any more, and after its release it stayed in the tree: the next fence on the OSD timeline read freed memory (a kernel panic when SurfaceFlinger restarted). Linux 4.14 has no `disable_signaling` there. |
 
 ## Build
 

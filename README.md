@@ -1,7 +1,7 @@
 # PlayThing
 
-**Status: beta** (version 0.1.0-beta.5). It is tested on two Car Things (an older and a newer board revision), and it has known issues
-(`docs/known-issues.md`).
+**Status: beta** (version 0.1.0-beta.6; changes in `CHANGELOG.md`). It is tested on two Car Things (an older and a newer board revision), and it has known
+issues (`docs/known-issues.md`).
 
 Android 9 on the Spotify Car Thing, as a wired Apple CarPlay receiver. An iPhone connects to the
 Car Thing through a USB hub, and CarPlay shows on the panel. The CarPlay app is
@@ -59,8 +59,8 @@ For a USB mode, connect the Car Thing directly to the computer, not through the 
 
 ## First install
 
-1. Download `plaything-0.1.0-beta.5.zip` from the [Releases page](https://github.com/tatujan/PlayThing/releases) of this repository,
-   unzip it, and open a terminal in the folder `plaything-0.1.0-beta.5`. (Or make a release folder
+1. Download `plaything-0.1.0-beta.6.zip` from the [Releases page](https://github.com/tatujan/PlayThing/releases) of this repository,
+   unzip it, and open a terminal in the folder `plaything-0.1.0-beta.6`. (Or make a release folder
    yourself, see "Build".)
 2. Disconnect the Car Thing. Hold presets 1 and 4, connect it directly to the computer, and
    release after about 3 seconds.
@@ -115,7 +115,7 @@ PlayThing: put the Car Thing in USB burn mode (preset 4, directly to the compute
 |---|---|
 | The stock software | First install, as above. |
 | A firmware based on the stock software (for example the Thing Labs / DeskThing image, GlanceThing) | First install, as above. Spotify's bootloader and partition table stay; the tool installs into slot B, and preset 1 still starts that firmware. If the firmware changed the boot command or runs from slot B, the tool stops before it writes. |
-| A firmware with its own bootloader and partition table (for example BridgeThing, Nocturne) | Do not run the tool on it. First restore the stock software with that project's instructions, then do the first install. (In mask-ROM mode, the tool's USB U-Boot can damage such a firmware; the tool asks before that step, and it stops if it finds a GPT.) |
+| A firmware with its own bootloader and partition table (for example BridgeThing; Nocturne 4 and Mira, which the Terbium web flasher installs: they write a new bootloader and a GPT disk image) | Do not run the tool on it. First restore the stock software with that project's instructions, then do the first install. (In mask-ROM mode, the tool's USB U-Boot can damage such a firmware; the tool asks before that step, and it stops if it finds a GPT.) |
 | PlayThing or superbird-android | Update, as above. The two share `/data`; Android deletes the data of the apps that the new image does not have. |
 | A companion app (for example MacThing, Carthios) | What counts is the firmware below it: see the rows above. |
 
@@ -135,8 +135,8 @@ in `docs/`):
   at power-on still starts the stock software (`docs/boot.md`).
 - **Kernel.** Spotify's Linux 4.9 with the options that Android needs (binder, ashmem, and more)
   and my patches: USB host mode with power in through a hub, touch axes for the landscape
-  screen, one key for each knob step, a VPU fix, and fewer xHCI warnings (`patches/kernel/`,
-  `docs/kernel.md`).
+  screen, one key for each knob step, a VPU fix, a fence fix (`sw_sync`), and fewer xHCI
+  warnings (`patches/kernel/`, `docs/kernel.md`).
 - **Android 9 Go in 512 MiB.** A 32-bit userspace (`core_tiny`, `go_defaults_512`), zram swap,
   and lmkd with memory cgroups (`docs/android.md`).
 - **Graphics.** The Mali-G31 GPU with Arm's r16p0 driver and kbase kernel module; the Mali

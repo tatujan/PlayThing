@@ -50,6 +50,9 @@ import subprocess
 import sys
 import tempfile
 import time
+
+# No __pycache__ folders in the release folder (blobs.py, superbird-tool's modules).
+sys.dont_write_bytecode = True
 import urllib.request
 import zlib
 from datetime import datetime, timezone
@@ -211,8 +214,9 @@ class Progress:
 
 OTHER_FIRMWARE = ('This tool works only on a Car Thing with the stock software or with PlayThing or\n'
                   'superbird-android. Firmwares with their own bootloader and partition table (for\n'
-                  'example BridgeThing or Nocturne) must be removed first: restore the stock software\n'
-                  'with that project\'s instructions (README.md, "Coming from another firmware").')
+                  'example BridgeThing, or Nocturne 4 and Mira, which Terbium installs) must be removed\n'
+                  'first: restore the stock software with that project\'s instructions (README.md,\n'
+                  '"Coming from another firmware").')
 
 
 def sha256_file(path):
@@ -735,6 +739,22 @@ def write_image(dev, system_raw):
 BOOT_A_OFFSET = 0xd600000    # boot_a: the same place with the older and the newer U-Boot
 SYSTEM_A_OFFSET = 0x10600000  # system_a (the stock root file system): the same with both
 DATA_OFFSET = 0x63616000     # data: the same place with both (data-setup.sh checks it)
+MISC_OFFSET = 0x51e16000     # misc: the same place with both (Android's bootloader message)
+
+
+def fs_kind(data):
+    """The kind of file system that starts with these bytes (at least 2 KiB)."""
+    if data[0x438:0x43a] == b'\x53\xef':
+        return 'ext4'
+    if data[0x400:0x404] == b'\x10\x20\xf5\xf2':
+        return 'f2fs'
+    if data[:4] == b'hsqs':
+        return 'squashfs'
+    if data[0x52:0x57] == b'FAT32' or data[0x36:0x39] == b'FAT':
+        return 'FAT'
+    if not data.strip(b'\0'):
+        return 'empty (zeros)'
+    return 'unknown'
 
 
 class ChunkReader:
@@ -1135,6 +1155,14 @@ def cmd_diag(args):
             note(f'  {key}={env.get(key)!r}')
         note(f'  preset-4 burn mode: {"yes" if BURN_BUTTON.strip() in env.get("storeargs", "") else "no"}')
         note(f'  eMMC user area: {user_area_size(dev) // MIB} MiB')
+        # Android's bootloader message (BCB): a recovery or boot command that waits for the next
+        # start (command[32], status[32], recovery[768]).
+        bcb = dev.read_small(MISC_OFFSET, 2048)
+        if bcb:
+            fields = [bcb[a:b].split(b'\0')[0].decode(errors='replace').strip()
+                      for a, b in ((0, 32), (32, 64), (64, 832))]
+            note('  misc (bootloader message): ' + ('; '.join(f'{k}={v!r}' for k, v in
+                 zip(('command', 'status', 'recovery'), fields) if v) or 'empty'))
 
     def part4():
         for label, offset, size, expected in (
@@ -1221,6 +1249,10 @@ def cmd_diag(args):
             note(f'  overlay {i}: ' + ('; '.join(changes)[:1500] or 'empty'))
 
     def part6():
+        kind = fs_kind(dev.read_small(DATA_OFFSET, 2048) or b'')
+        if kind != 'ext4':
+            note(f'  stock data partition: {kind}, not the stock ext4 (another firmware, or erased)')
+            return
         outer = Ext4(ChunkReader(dev, DATA_OFFSET))
         note(f'  stock data file system: label {outer.label!r}, last mount {utc(outer.mount_time)}, '
              f'last write {utc(outer.write_time)}'
