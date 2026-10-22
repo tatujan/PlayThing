@@ -1,0 +1,30 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] SurfaceFlinger: screenshots with a primary display orientation
+
+The Car Thing panel is portrait (480 x 800) and SF_PRIMARY_DISPLAY_ORIENTATION
+is 90. captureScreen() takes the display scissor as the crop, but the scissor
+is in panel coordinates, and renderScreenImplLocked() turns a given crop from
+display coordinates to panel coordinates again. The crop becomes
+(-320, 0, 480, 480): screencap and the window manager's rotation animation show
+the left 480 columns of the screen, stretched, above a black band. With a
+primary display orientation, the scissor is not used: the crop is then the
+whole panel (the default in renderScreenImplLocked), and updateDimensions()
+gives the size. Without a primary display orientation, nothing changes.
+
+---
+--- a/services/surfaceflinger/SurfaceFlinger.cpp
++++ b/services/surfaceflinger/SurfaceFlinger.cpp
+@@ -4767,7 +4767,12 @@
+     if (CC_UNLIKELY(device == 0)) return BAD_VALUE;
+ 
+     const Rect& dispScissor = device->getScissor();
+-    if (!dispScissor.isEmpty()) {
++    // PlayThing: with a primary display orientation (a panel mounted turned), the scissor is in
++    // panel coordinates, but renderScreenImplLocked turns a given crop from display coordinates
++    // to panel coordinates again. The screenshot (screencap, the rotation animation) then shows
++    // a stretched part of the screen. So without the scissor: the crop is then the whole panel,
++    // and updateDimensions gives the size.
++    if (!dispScissor.isEmpty() && mPrimaryDisplayOrientation == DisplayState::eOrientationDefault) {
+         sourceCrop.set(dispScissor);
+         // adb shell screencap will default reqWidth and reqHeight to zeros.
+         if (reqWidth == 0 || reqHeight == 0) {

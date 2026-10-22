@@ -23,6 +23,30 @@ PRODUCT_PACKAGES += \
     Settings \
     VpnDialogs
 
+# Apps (docs/apps.md): Droid-ify is the app store (a placeholder; flash.py writes the release
+# APK), and the PlayThing App manager (apps/CptManager) shows, stops, cleans, and removes apps.
+PRODUCT_PACKAGES += \
+    Droidify \
+    CptManager
+
+# ThingPod, an iPod classic style music player (apps/ThingPod, docs/thingpod.md). Its storage
+# permission is granted on a new /data (default permissions). MediaProvider is Android's media
+# library (MediaStore) and its media scanner: ThingPod and other music apps read the songs from
+# it. core_tiny does not install it (core_minimal does). Its process runs while it scans (at
+# boot, and when a USB stick is connected).
+PRODUCT_PACKAGES += \
+    ThingPod \
+    MediaProvider
+
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/permissions/default-permissions-thingpod.xml:$(TARGET_COPY_OUT_VENDOR)/etc/default-permissions/default-permissions-thingpod.xml
+
+# Trusted installer apps (docs/apps.md; patches/aosp/frameworks/base/0003-* and
+# packages/apps/PackageInstaller/0001-*): they install and remove apps without a prompt.
+# Entry: "package:SHA-256 of the signing certificate". Droid-ify: its release key since v0.5.0.
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.plaything.trusted_installers=com.looker.droidify:ed8859c55af311162658b94af982b9f091dcd27628d4de3486d1217ebf3c9935
+
 # DiPlay, the CarPlay app (docs/diplay.md). The release APK has no HOME activity; after a
 # boot the home screen (CptHome) shows. diplay-setup.sh sets DiPlay's app-ops and settings,
 # and the car button icon in CarPlay.

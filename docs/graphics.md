@@ -54,7 +54,8 @@ The ioctl numbers and the request structure follow the frame buffer driver of th
 
 ## Notes
 
-- `screencap` gives a distorted image on this device (the landscape frame in a portrait buffer).
-  Check the panel itself.
+- Screenshots: SurfaceFlinger in Android 9 took the wrong crop for a turned panel, so
+  `screencap` and the rotation animation showed a stretched part of the screen; patch
+  `frameworks/native/0001` fixes it (`docs/android.md`).
 - SELinux: the composer service needs read access to `/sys/class/display`, `/dev/vndbinder`, and
   `setsched` (`docs/selinux.md`).

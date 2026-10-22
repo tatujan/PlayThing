@@ -8,6 +8,9 @@
     <string name="carplay">CarPlay</string>
     <string name="bluetooth">Bluetooth</string>
     <string name="settings">Settings</string>
+    <string name="apps">Apps</string>
+    <!-- Rotate button with an iPhone on USB: CarPlay starts again, and the iPhone asks Trust. -->
+    <string name="rotate_confirm">iPhone connected: press again to rotate</string>
     <!-- Toast while an app opens (design: "Opening {App}…") -->
     <string name="opening">Opening %1$s…</string>
     <!-- Bluetooth status, top right -->

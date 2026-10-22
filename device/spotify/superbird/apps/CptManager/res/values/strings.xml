@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<resources>
+    <string name="app_name">App manager</string>
+
+    <!-- List screen -->
+    <string name="status">Storage: %1$s free of %2$s · RAM: %3$s free</string>
+    <string name="cleanup">Clean up</string>
+    <string name="cleanup_size">Clear the caches of all apps: %1$s</string>
+    <string name="cleanup_measuring">Clear the caches of all apps (measuring…)</string>
+    <string name="cleanup_running">Clearing the caches: %1$d of %2$d…</string>
+    <string name="cleanup_done">Cleared %1$s of caches.</string>
+    <string name="cleanup_nothing">The caches are empty.</string>
+    <string name="section_installed">Installed apps</string>
+    <string name="section_system">Apps of the image</string>
+    <string name="row_running">Running · %1$s</string>
+    <string name="row_size">%1$s</string>
+
+    <!-- App screen -->
+    <string name="info_version">Version %1$s</string>
+    <string name="info_installer">Installed by %1$s</string>
+    <string name="info_image">In the image</string>
+    <string name="info_image_updated">In the image, with an update</string>
+    <string name="info_sizes">App %1$s · Data %2$s · Cache %3$s</string>
+    <string name="info_sizes_unknown">Measuring the size…</string>
+    <string name="info_running">Running: %1$s of RAM</string>
+    <string name="info_not_running">Not running</string>
+    <string name="btn_open">Open</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_clear_cache">Clear cache</string>
+    <string name="btn_clear_data">Clear data</string>
+    <string name="btn_remove">Remove</string>
+    <string name="btn_remove_update">Remove update</string>
+    <string name="btn_confirm">Press again</string>
+    <string name="confirm_clear_data">This deletes all data of the app: its settings, accounts, and files.</string>
+    <string name="confirm_remove">This deletes the app and its data.</string>
+    <string name="confirm_remove_update">This removes the update and its data. The version of the image stays.</string>
+    <string name="confirm_stop">The app stops now. Android starts it again when it is necessary.</string>
+    <string name="no_open">This app has no screen to open.</string>
+    <string name="busy">Wait: the App manager does another job.</string>
+
+    <!-- Results -->
+    <string name="done_stop">Stopped.</string>
+    <string name="done_cache">The cache is clear.</string>
+    <string name="done_data">The data is deleted.</string>
+    <string name="done_removed">Removed.</string>
+    <string name="failed">Android did not do it: %1$s</string>
+    <string name="working">Wait…</string>
+</resources>

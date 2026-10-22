@@ -1,0 +1,89 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] UninstallerActivity: no confirmation for trusted installer apps
+
+App stores such as Droid-ify uninstall with ACTION_UNINSTALL_PACKAGE. When the
+calling app is in ro.plaything.trusted_installers ("package:certificate
+SHA-256", comma separated; the package must belong to the calling uid and have
+that signing certificate), the uninstall starts without the confirmation, as
+the framework patch does for PackageInstaller.uninstall() (frameworks/base
+0003). Without the property, nothing changes.
+
+---
+--- a/src/com/android/packageinstaller/UninstallerActivity.java
++++ b/src/com/android/packageinstaller/UninstallerActivity.java
+@@ -50,6 +50,7 @@
+ import android.os.IBinder;
+ import android.os.RemoteException;
+ import android.os.ServiceManager;
++import android.os.SystemProperties;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+ import android.support.annotation.NonNull;
+@@ -84,6 +85,8 @@
+ 
+     private String mPackageName;
+     private DialogInfo mDialogInfo;
++    // PlayThing: the caller is a trusted installer app (no confirmation).
++    private boolean mTrustedCaller;
+ 
+     @Override
+     public void onCreate(Bundle icicle) {
+@@ -130,6 +133,7 @@
+                 finish();
+                 return;
+             }
++            mTrustedCaller = isTrustedInstaller(callingUid);
+         } catch (RemoteException ex) {
+             // Cannot reach Package/ActivityManager. Aborting uninstall.
+             Log.e(TAG, "Could not determine the launching uid.");
+@@ -209,7 +213,49 @@
+             }
+         }
+ 
+-        showConfirmationDialog();
++        if (mTrustedCaller && !mDialogInfo.allUsers) {
++            startUninstallProgress();
++        } else {
++            showConfirmationDialog();
++        }
++    }
++
++    /**
++     * PlayThing: an installer app in ro.plaything.trusted_installers uninstalls without the
++     * confirmation, as an app with DELETE_PACKAGES. Each entry is "package:SHA-256 of the
++     * signing certificate" (lower case); commas separate the entries. The package must belong
++     * to the uid and have that certificate.
++     */
++    private boolean isTrustedInstaller(int uid) {
++        final String list = SystemProperties.get("ro.plaything.trusted_installers", "");
++        final PackageManager pm = getPackageManager();
++        final String[] packages = list.isEmpty() ? null : pm.getPackagesForUid(uid);
++        if (packages == null) {
++            return false;
++        }
++        for (String entry : list.split(",")) {
++            final int colon = entry.indexOf(':');
++            final String hex = colon > 0 ? entry.substring(colon + 1).trim() : "";
++            if (hex.length() != 64) {
++                continue;
++            }
++            final byte[] cert = new byte[32];
++            boolean valid = true;
++            for (int i = 0; i < 32 && valid; i++) {
++                final int hi = Character.digit(hex.charAt(2 * i), 16);
++                final int lo = Character.digit(hex.charAt(2 * i + 1), 16);
++                valid = hi >= 0 && lo >= 0;
++                cert[i] = (byte) ((hi << 4) | lo);
++            }
++            final String name = entry.substring(0, colon).trim();
++            for (String pkg : packages) {
++                if (valid && pkg.equals(name)
++                        && pm.hasSigningCertificate(pkg, cert, PackageManager.CERT_INPUT_SHA256)) {
++                    return true;
++                }
++            }
++        }
++        return false;
+     }
+ 
+     public DialogInfo getDialogInfo() {

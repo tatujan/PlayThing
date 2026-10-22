@@ -14,24 +14,30 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ContentResolver;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 
 import java.util.List;
 
 /**
  * PlayThing home screen (docs/home-screen.md):
- * CarPlay (DiPlay), Bluetooth settings, and Settings as three tiles, and the Bluetooth audio
- * device at the top right. The knob moves the focus (DPAD left and right) and opens the
- * focused tile (ENTER); touch also works.
+ * CarPlay (DiPlay), Bluetooth settings, Settings, and the app drawer (Apps) as four tiles, and the
+ * Bluetooth audio device at the top right. The knob moves the focus (DPAD left and right) and
+ * opens the focused tile (ENTER); touch also works.
  */
 public class HomeActivity extends Activity implements HomeView.Listener {
     private static final String TAG = "CptHome";
@@ -41,11 +47,17 @@ public class HomeActivity extends Activity implements HomeView.Listener {
     // One knob detent moves the focus by one tile: ignore knob events that come less than
     // 180 ms after the last one (design: "Input").
     private static final long KNOB_GAP_MS = 180;
+    // With an iPhone on USB, the rotate button needs a second press within this time.
+    private static final long ROTATE_CONFIRM_MS = 4000;
+    private static final int APPLE_VID = 0x05ac;
 
     private HomeView mHome;
     private BluetoothA2dp mA2dp;
     private long mLastKnob = -KNOB_GAP_MS;
     private boolean mEnterDown;
+    private boolean mStarted;
+    // The time of the first rotate press while an iPhone is connected (second press rotates).
+    private long mRotateArmed = -ROTATE_CONFIRM_MS;
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -91,13 +103,39 @@ public class HomeActivity extends Activity implements HomeView.Listener {
     @Override
     protected void onStart() {
         super.onStart();
+        mStarted = true;
+        applyWallpaper(getResources().getConfiguration());
+    }
+
+    // The rotate button changes the orientation (configChanges: no new activity).
+    @Override
+    public void onConfigurationChanged(Configuration config) {
+        super.onConfigurationChanged(config);
+        if (mStarted) {
+            applyWallpaper(config);
+        }
+    }
+
+    /** The wallpaper as the window background; in portrait turned by 90 degrees (480 x 800). */
+    private void applyWallpaper(Configuration config) {
         BitmapFactory.Options o = new BitmapFactory.Options();
         o.inPreferredConfig = Bitmap.Config.RGB_565;
         o.inScaled = false;
         Bitmap wallpaper = BitmapFactory.decodeResource(getResources(), R.drawable.wallpaper, o);
-        if (wallpaper != null) {
-            getWindow().setBackgroundDrawable(new BitmapDrawable(getResources(), wallpaper));
+        if (wallpaper == null) {
+            return;
         }
+        if (config.orientation == Configuration.ORIENTATION_PORTRAIT) {
+            Matrix m = new Matrix();
+            m.postRotate(90);
+            Bitmap turned = Bitmap.createBitmap(wallpaper, 0, 0, wallpaper.getWidth(),
+                    wallpaper.getHeight(), m, false);
+            if (turned != wallpaper) {
+                wallpaper.recycle();
+            }
+            wallpaper = turned;
+        }
+        getWindow().setBackgroundDrawable(new BitmapDrawable(getResources(), wallpaper));
     }
 
     @Override
@@ -116,6 +154,7 @@ public class HomeActivity extends Activity implements HomeView.Listener {
     @Override
     protected void onStop() {
         // The app is in front: remove the toast, and release the wallpaper.
+        mStarted = false;
         mHome.hideToast();
         getWindow().setBackgroundDrawable(new ColorDrawable(BG));
         super.onStop();
@@ -181,7 +220,7 @@ public class HomeActivity extends Activity implements HomeView.Listener {
         return super.dispatchGenericMotionEvent(event);
     }
 
-    /** Clockwise (+1) moves the focus right. No wrap at the ends. */
+    /** Clockwise (+1) moves the focus right, then to the rotate button. No wrap at the ends. */
     private void knob(int step, long time) {
         if (time - mLastKnob < KNOB_GAP_MS) {
             return;
@@ -196,6 +235,9 @@ public class HomeActivity extends Activity implements HomeView.Listener {
         Intent intent;
         int label;
         switch (tile) {
+            case HomeView.ROTATE:
+                rotate();
+                return;
             case 0:
                 // The launcher intent: with it, DiPlay opens the running CarPlay session
                 // (DiPlayActivity.isLauncherIntent). With a plain component intent it shows its
@@ -213,6 +255,10 @@ public class HomeActivity extends Activity implements HomeView.Listener {
                 intent = new Intent(Settings.ACTION_SETTINGS);
                 label = R.string.settings;
                 break;
+            case 3:
+                // The app drawer stays in this task (no new task), so Back returns here.
+                startActivity(new Intent(this, AppsActivity.class));
+                return;
             default:
                 return;
         }
@@ -222,6 +268,49 @@ public class HomeActivity extends Activity implements HomeView.Listener {
         } catch (ActivityNotFoundException e) {
             Log.w(TAG, "no activity for " + intent, e);
         }
+    }
+
+    /**
+     * Turns the screen 90 degrees clockwise (docs/home-screen.md, "Rotation"). The Car Thing has
+     * no motion sensor, so this is Android's rotation lock with a fixed user rotation; Android
+     * keeps it after a restart. Apps that lock their orientation keep it.
+     */
+    private void rotate() {
+        // A new orientation makes DiPlay start CarPlay again with the new size, and the iPhone
+        // then asks "Trust" again (docs/home-screen.md). So with an iPhone connected, the first
+        // press only shows a note, and a second press within 4 s rotates.
+        long now = android.os.SystemClock.uptimeMillis();
+        if (iphoneConnected() && now - mRotateArmed > ROTATE_CONFIRM_MS) {
+            mRotateArmed = now;
+            mHome.showToast(getString(R.string.rotate_confirm));
+            return;
+        }
+        mRotateArmed = -ROTATE_CONFIRM_MS;
+        ContentResolver cr = getContentResolver();
+        boolean locked = Settings.System.getInt(cr, Settings.System.ACCELEROMETER_ROTATION, 1) == 0;
+        int current = locked
+                ? Settings.System.getInt(cr, Settings.System.USER_ROTATION, Surface.ROTATION_0)
+                : Surface.ROTATION_0;
+        try {
+            Settings.System.putInt(cr, Settings.System.ACCELEROMETER_ROTATION, 0);
+            Settings.System.putInt(cr, Settings.System.USER_ROTATION, (current + 1) % 4);
+        } catch (SecurityException e) {
+            Log.w(TAG, "cannot rotate: no WRITE_SETTINGS", e);
+        }
+    }
+
+    /** An Apple device on USB (the iPhone for CarPlay). Listing devices needs no permission. */
+    private boolean iphoneConnected() {
+        UsbManager usb = getSystemService(UsbManager.class);
+        if (usb == null) {
+            return false;
+        }
+        for (UsbDevice d : usb.getDeviceList().values()) {
+            if (d.getVendorId() == APPLE_VID) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void updateStatus() {

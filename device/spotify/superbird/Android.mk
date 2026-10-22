@@ -18,6 +18,20 @@ LOCAL_STRIP_MODULE := false
 LOCAL_PREBUILT_MODULE_FILE := vendor/plaything/mali/libGLES_mali.so
 include $(BUILD_PREBUILT)
 
+# Droid-ify, the app store (docs/apps.md), with its developer's signature. As DiPlay below:
+# a placeholder in the image, and scripts/flash.py writes the release APK into it
+# (scripts/blobs.py). No dexpreopt (Android verifies it at the first start). Its native
+# libraries are stored uncompressed, so Android uses them from the APK.
+include $(CLEAR_VARS)
+LOCAL_MODULE := Droidify
+LOCAL_MODULE_CLASS := APPS
+LOCAL_MODULE_SUFFIX := $(COMMON_ANDROID_PACKAGE_SUFFIX)
+LOCAL_CERTIFICATE := PRESIGNED
+LOCAL_MULTILIB := 32
+LOCAL_DEX_PREOPT := false
+LOCAL_REPLACE_PREBUILT_APK_INSTALLED := vendor/plaything/droidify/Droidify.apk
+include $(BUILD_PREBUILT)
+
 # DiPlay release APK, with its own signature. The image has a placeholder of the same size
 # (scripts/aosp-prepare.sh), and scripts/flash.py writes the release APK into it
 # (scripts/blobs.py): the APK contains DiPlay's CarPlay accessory identity, so the published
@@ -36,10 +50,12 @@ LOCAL_DEX_PREOPT := false
 LOCAL_REPLACE_PREBUILT_APK_INSTALLED := vendor/plaything/diplay/DiPlay.apk
 include $(BUILD_PREBUILT)
 
-# PlayThing home screen and keyboard. Make does not look below a folder that has
+# PlayThing home screen, keyboard, App manager, and ThingPod. Make does not look below a folder that has
 # its own Android.mk, so include them here. Each sets LOCAL_PATH to its own folder, so keep this one.
 SUPERBIRD_DEVICE_DIR := $(LOCAL_PATH)
 include $(SUPERBIRD_DEVICE_DIR)/apps/CptHome/Android.mk
 include $(SUPERBIRD_DEVICE_DIR)/apps/CptKeyboard/Android.mk
+include $(SUPERBIRD_DEVICE_DIR)/apps/CptManager/Android.mk
+include $(SUPERBIRD_DEVICE_DIR)/apps/ThingPod/Android.mk
 
 endif

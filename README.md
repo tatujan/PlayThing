@@ -9,9 +9,11 @@ Car Thing through a USB hub, and CarPlay shows on the panel. The CarPlay app is
 The car stereo gets the audio over Bluetooth A2DP.
 
 Features: the knob and the buttons control CarPlay; a home screen (CptHome) with CarPlay,
-Bluetooth, and Settings; the hardware H.264 decoder; persistent `/data` on the stock data
-partition; automatic brightness; the built-in microphones for Siri; Bluetooth tethering from
-the iPhone for DiPlay updates; SELinux enforcing; a minimal keyboard.
+Bluetooth, Settings, and an app drawer, in landscape or portrait (rotate button); Droid-ify as
+the app store (installs without a prompt) and an App manager; ThingPod, an iPod-style music
+player; the hardware H.264 decoder; persistent `/data` on the stock data partition; automatic
+brightness; the built-in microphones for Siri; Bluetooth tethering from the iPhone for DiPlay
+updates; SELinux enforcing; a minimal keyboard.
 
 A version without DiPlay and the home screen, as a base for other Android apps:
 **superbird-android** (a separate repository).
@@ -152,11 +154,15 @@ in `docs/`):
 - **Knob and buttons.** A framework patch makes the knob move the focus in apps; the buttons
   send media keys and the Siri key (`docs/input.md`).
 - **The CarPlay appliance.** DiPlay with its settings at each boot; a home screen (CptHome)
-  and a minimal keyboard (CptKeyboard); Settings patches for a screen without phone features
-  (`docs/home-screen.md`, `docs/keyboard.md`).
+  with an app drawer and a rotate button (landscape or portrait); a minimal keyboard
+  (CptKeyboard); Settings patches for a screen without phone features (`docs/home-screen.md`,
+  `docs/keyboard.md`).
+- **More apps.** Droid-ify as the app store, with installs and removals without a prompt; an
+  App manager (storage, memory, clean-up); ThingPod, an iPod-style music player for the knob
+  (`docs/apps.md`, `docs/thingpod.md`).
 - **Security.** SELinux enforcing, with my own policy for each script and HAL
   (`docs/selinux.md`).
-- **A publishable image.** No Arm, Amlogic, Broadcom, or DiPlay files in the image: placeholders
+- **A publishable image.** No Arm, Amlogic, Broadcom, Droid-ify, or DiPlay files in the image: placeholders
   that `flash.py` fills on your computer, and the Bluetooth firmware from your own Car Thing
   (`docs/release.md`).
 - **A build on a Mac.** The AOSP Pie build runs in a Linux container under Rosetta, with an ART

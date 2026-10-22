@@ -3,3 +3,6 @@
 # data-setup.sh: ro.plaything.data (emmc or ram), and the devices that init mounts
 # (stock_dev, data_dev, ram_dev).
 ro.plaything.            u:object_r:cpt_data_prop:s0
+# The trusted installer apps (docs/apps.md): readable by system_server and the PackageInstaller
+# app (installer.te). The longer name wins over the prefix above.
+ro.plaything.trusted_installers   u:object_r:cpt_installer_prop:s0

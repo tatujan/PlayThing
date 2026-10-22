@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The PlayThing Authors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# ro.plaything.trusted_installers (property.te, docs/apps.md).
+get_prop(system_server, cpt_installer_prop)
+get_prop(platform_app, cpt_installer_prop)

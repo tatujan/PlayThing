@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<resources>
+    <!-- Full screen and light, as the iPod classic. PodView draws everything. -->
+    <style name="PodTheme" parent="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:colorAccent">#1B66D2</item>
+    </style>
+    <color name="launcher_bg">#FFE9EBEE</color>
+</resources>

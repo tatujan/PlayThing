@@ -52,6 +52,20 @@ before the stub. Calls: CarPlay call audio (DiPlay) uses `USAGE_VOICE_COMMUNICAT
 Remove the iPhone from the car's own Bluetooth devices (or turn off its media audio there):
 else the iPhone also sends audio to the car directly.
 
+### USB audio (for example to the car's AUX input)
+
+A USB sound card works as the output: when it connects, Android opens the USB output (48 kHz,
+stereo) and selects the route "USB" (tested with a USB-C audio adapter, `1620:0b21` "Generic USB
+Audio", with headphones). A connected Bluetooth A2DP device comes first.
+
+For CarPlay, the iPhone and the sound card must be on the USB bus at the same time. So use a USB
+hub (with a hub chip) and connect the sound card to one of its ports, or use a hub whose sound
+card is behind its hub chip. Some USB-C adapters with a 3.5 mm jack, Power Delivery, and a data
+port have no hub chip: they switch their one USB connection between their own sound card and the
+device in the data port. With the iPhone connected, their sound card is off, and no sound comes
+out. In the kernel log, a sound card behind a hub shows as `usb 1-2.x`; the adapter's sound card
+and then the iPhone both show as `usb 1-2`.
+
 ## Microphones (`audio/hal/audio_hw.c`)
 
 The ALSA card `AML-AUGESOUND` has one PDM capture device (`/dev/snd/pcmC0D0c`, 4 channels, up to

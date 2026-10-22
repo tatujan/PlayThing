@@ -1,14 +1,5 @@
 # Known issues
 
-## Music through a hub's AUX jack
-
-With a USB-C hub that has Power Delivery, data ports, and a 3.5 mm AUX jack, no sound came out of
-the jack. The image has the USB audio parts (the HAL `audio.usb.default`, the USB audio policy,
-`CONFIG_SND_USB_AUDIO`), but USB audio output was never tested on the Car Thing. Possible causes:
-the hub's jack is analog over USB-C (no USB sound card in the hub), Android routes the sound to a
-connected Bluetooth device first, or the USB sound card does not reach the audio policy. The
-cause is not known yet.
-
 ## CarPlay USB drops in the car
 
 In the car, the CarPlay session sometimes ends. The cause is not known yet. Facts so far:
@@ -38,11 +29,13 @@ CarPlay calls work over A2DP with the built-in microphones, but:
 
 ## Other
 
-- `screencap` gives a distorted image (the landscape frame in a portrait buffer).
 - Some Car Things have a different panel (Holitech). The image uses the unit's own device tree,
   but only the ST7701S panel is tested.
 - The stock software must be in slot A; `flash.py` refuses a unit whose stock software runs from
   slot B.
+- USB-C audio adapters without a hub chip cannot give sound while the iPhone is connected: they
+  switch between their sound card and their data port (`docs/bluetooth-audio.md`, "USB audio").
+  Use a hub and a separate USB sound card.
 - I tested PlayThing only on a Car Thing with the older Spotify U-Boot (`v1.0-57`). Car Things
   with the newer U-Boot (`v1.0-74`, with `fip_a`/`fip_b` in the partition table) have the same
   places for the partitions that PlayThing uses, and the same device-tree nodes; `flash.py`

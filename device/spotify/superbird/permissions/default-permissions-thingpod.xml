@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- ThingPod reads the music files without a dialog (on a new /data; else it asks once). -->
+<exceptions>
+    <exception package="com.plaything.pod">
+        <permission name="android.permission.READ_EXTERNAL_STORAGE" fixed="false"/>
+    </exception>
+</exceptions>

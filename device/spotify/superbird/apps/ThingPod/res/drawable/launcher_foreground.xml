@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copyright (C) 2026 The PlayThing Authors
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!-- ThingPod's own icon: a music player with a screen and a click wheel, in the 66 dp center
+     of the adaptive icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Body -->
+    <path
+        android:fillColor="#FFF7F8FA"
+        android:strokeColor="#FF8E9196"
+        android:strokeWidth="1.5"
+        android:pathData="M38,22 h32 a6,6 0 0 1 6,6 v52 a6,6 0 0 1 -6,6 h-32 a6,6 0 0 1 -6,-6 v-52 a6,6 0 0 1 6,-6 z" />
+    <!-- Screen -->
+    <path
+        android:fillColor="#FF1B66D2"
+        android:pathData="M38,28 h32 v22 h-32 z" />
+    <path
+        android:fillColor="#FF5AA9F3"
+        android:pathData="M38,28 h32 v8 h-32 z" />
+    <!-- Click wheel -->
+    <path
+        android:fillColor="#FFD3D6DB"
+        android:pathData="M54,56 a12,12 0 1 1 0,24 a12,12 0 1 1 0,-24 z" />
+    <path
+        android:fillColor="#FFF7F8FA"
+        android:pathData="M54,64 a4,4 0 1 1 0,8 a4,4 0 1 1 0,-8 z" />
+</vector>

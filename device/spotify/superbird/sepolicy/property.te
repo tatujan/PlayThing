@@ -1,3 +1,7 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 type cpt_data_prop, property_type;
+# ro.plaything.trusted_installers (docs/apps.md): the installer apps that install and remove
+# without a prompt. Read by system_server (PackageInstallerService) and by the PackageInstaller
+# app (platform_app, its uninstall screen).
+type cpt_installer_prop, property_type;

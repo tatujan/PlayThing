@@ -74,7 +74,10 @@ DiPlay and CptHome; in superbird-android Launcher3Go.
 | `frameworks/av/0002` | With `persist.plaything.avc_decode_order=1`, the software H.264 decoder outputs in decode order (lower latency for streams without B-frames). Only for the software fallback. |
 | `frameworks/av/0003` | Registers my hardware H.264 decoder component. |
 | `frameworks/base/0001` | With `ro.config.knob_sequential_focus=true`, knob LEFT/RIGHT that an app does not handle move the focus in focus order, as SHIFT+TAB and TAB (`docs/input.md`). |
+| `frameworks/base/0003` | An installer app in `ro.plaything.trusted_installers` (package and signing-certificate SHA-256) installs, and removes with `PackageInstaller.uninstall()`, without a prompt (`docs/apps.md`). |
+| `packages/apps/PackageInstaller/0001` | The uninstall screen (`ACTION_UNINSTALL_PACKAGE`) asks no confirmation from an app in `ro.plaything.trusted_installers`. |
 | `frameworks/base/0002` | The zygote gives the Bluetooth process `CAP_NET_ADMIN` (the kernel has no Android paranoid-network groups), so Bluetooth tethering (PAN) can create its network interface. |
+| `frameworks/native/0001` | Screenshots with the turned panel (`SF_PRIMARY_DISPLAY_ORIENTATION := 90`): SurfaceFlinger does not use the display scissor (panel coordinates) as the crop, so `screencap` and the rotation animation show the whole screen, not a stretched part of it. |
 | `packages/apps/Settings/0001` | Settings opens in the television UI mode (it has no action bar there), and it hides its search bar when no search app is installed (the image has none). |
 | `hardware/amlogic/gralloc/0001` | The gralloc without Amlogic's extension (`docs/graphics.md`). |
 

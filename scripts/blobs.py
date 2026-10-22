@@ -4,7 +4,8 @@
 """Proprietary files of the PlayThing image, and their placeholders (docs/release.md).
 
 The image does not contain these files: the licenses of the first two do not allow
-redistribution, and DiPlay's release APK contains a CarPlay accessory identity.
+redistribution, DiPlay's release APK contains a CarPlay accessory identity, and Droid-ify (the
+app store, GPL-3.0) comes as its developer's release, as DiPlay.
 The build puts a placeholder of the same size in their place. The flash tool
 (scripts/flash.py) downloads each file from its public source, checks its SHA-256, and
 writes it into the blocks of its placeholder in system.raw, on the user's computer.
@@ -59,6 +60,16 @@ BLOBS = [
         'url': 'https://github.com/shihabal3amri/DiPlay/releases/download/v0.2.20/DiPlay-0.2.20.apk',
         'what': 'DiPlay 0.2.20, the CarPlay app (GPL-3.0; release APK from its GitHub releases)',
         'optional': True,
+    },
+    {
+        # The app store (docs/apps.md), in both images. Its native libraries are stored
+        # uncompressed (extractNativeLibs=false), so Android uses the APK from /system as it is.
+        'name': 'Droidify.apk',
+        'path': '/app/Droidify/Droidify.apk',
+        'size': 5997579,
+        'sha256': '3e7934ff9b811c2f77794793381241095a02bac2d163bf922cb5a5a0ed25ca82',
+        'url': 'https://github.com/Droid-ify/client/releases/download/v0.7.8/app-release.apk',
+        'what': 'Droid-ify 0.7.8, the app store (GPL-3.0; release APK from its GitHub releases)',
     },
 ]
 

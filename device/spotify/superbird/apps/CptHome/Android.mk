@@ -1,7 +1,8 @@
 # Copyright (C) 2026 The PlayThing Authors
 # SPDX-License-Identifier: GPL-3.0-or-later
 # PlayThing home screen (docs/home-screen.md): replaces Launcher3Go.
-# Tiles for CarPlay (DiPlay), Bluetooth settings, and Settings, and the Bluetooth status.
+# Tiles for CarPlay (DiPlay), Bluetooth settings, Settings, and the app drawer (Apps), and the
+# Bluetooth status.
 # Android.mk, because Soong in Android 9 has no "overrides" for apps.
 LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)

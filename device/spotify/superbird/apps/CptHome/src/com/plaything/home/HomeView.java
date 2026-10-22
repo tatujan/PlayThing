@@ -20,8 +20,9 @@ import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 
 /**
- * The home screen in one view: three tiles, their labels, the focus dots, the Bluetooth status,
- * and the "Opening …" toast (docs/home-screen.md).
+ * The home screen in one view: four tiles, their labels, the focus dots, the Bluetooth status,
+ * the rotate button, and the "Opening …" toast (docs/home-screen.md). Landscape: the tiles in
+ * one row; portrait: in a 2 x 2 grid.
  *
  * All sizes are pixels, as in the design (800 x 480, 1 px = 1 design px). The display density
  * is 240, so dp units would make everything 1.5 times larger.
@@ -31,11 +32,15 @@ final class HomeView extends View {
         void onLaunch(int tile);
     }
 
-    static final int TILES = 3;
+    static final int TILES = 4;
+    // The focus index of the rotate button (after the last tile).
+    static final int ROTATE = TILES;
 
-    // Layout (design: "Layout: home screen").
-    private static final int TILE = 180;
-    private static final int GAP = 28;
+    // Layout (design: "Layout: home screen"; four tiles of 160 px fit the 800 px width, the
+    // design's 180 px tiles fit only three).
+    private static final int TILE = 160;
+    private static final int GAP = 24;
+    private static final int ROW_GAP = 32;
     private static final float RADIUS = 14;
     private static final int ICON = 72;
     private static final int LABEL_GAP = 14;
@@ -43,6 +48,11 @@ final class HomeView extends View {
     private static final int MARGIN_TOP = 20;
     private static final int STATUS_ICON = 20;
     private static final int STATUS_GAP = 6;
+    // Rotate button, left of the Bluetooth status: a 22 px icon in a 36 px square.
+    private static final int ROTATE_SIZE = 36;
+    private static final int ROTATE_ICON = 22;
+    private static final int ROTATE_GAP = 14;
+    private static final float ROTATE_RADIUS = 8;
     private static final int DOT_H = 6;
     private static final int DOT_W = 6;
     private static final int DOT_ACTIVE_W = 20;
@@ -80,9 +90,11 @@ final class HomeView extends View {
     private final Drawable[] mIcons = new Drawable[TILES];
     private final Drawable mBtIcon;
     private final Drawable mBtOffIcon;
+    private final Drawable mRotateIcon;
+    private final RectF mRotateRect = new RectF();
     private final RectF[] mTiles = new RectF[TILES];
-    private final float[] mScale = {1, 1, 1};
-    private final float[] mDotW = {DOT_W, DOT_W, DOT_W};
+    private final float[] mScale = {1, 1, 1, 1};
+    private final float[] mDotW = {DOT_W, DOT_W, DOT_W, DOT_W};
     private final Paint mFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mBorder = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint mLabel = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -94,7 +106,6 @@ final class HomeView extends View {
     private final float[] mFromDotW = new float[TILES];
     private final Runnable mHideToast = this::hideToast;
     private Bitmap mGlow;
-    private float mLabelTop;
 
     private int mFocus;
     private boolean mPressed;
@@ -109,11 +120,14 @@ final class HomeView extends View {
         mLabels[0] = context.getString(R.string.carplay);
         mLabels[1] = context.getString(R.string.bluetooth);
         mLabels[2] = context.getString(R.string.settings);
+        mLabels[3] = context.getString(R.string.apps);
         mIcons[0] = context.getDrawable(R.drawable.ic_car_profile).mutate();
         mIcons[1] = context.getDrawable(R.drawable.ic_bluetooth).mutate();
         mIcons[2] = context.getDrawable(R.drawable.ic_gear_six).mutate();
+        mIcons[3] = context.getDrawable(R.drawable.ic_squares_four).mutate();
         mBtIcon = context.getDrawable(R.drawable.ic_bluetooth).mutate();
         mBtOffIcon = context.getDrawable(R.drawable.ic_bluetooth_slash).mutate();
+        mRotateIcon = context.getDrawable(R.drawable.ic_device_rotate).mutate();
         for (int i = 0; i < TILES; i++) {
             mTiles[i] = new RectF();
         }
@@ -149,9 +163,12 @@ final class HomeView extends View {
         return mFocus;
     }
 
-    /** Moves the focus to a tile. Colors change at once; scale and dot width in 180 ms. */
+    /**
+     * Moves the focus to a tile, or to the rotate button (ROTATE). Colors change at once; scale
+     * and dot width in 180 ms.
+     */
     void setFocusedTile(int tile) {
-        if (tile < 0 || tile >= TILES || tile == mFocus) {
+        if (tile < 0 || tile > ROTATE || tile == mFocus) {
             return;
         }
         mFocus = tile;
@@ -203,16 +220,19 @@ final class HomeView extends View {
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        // The tiles and their labels are one group, centered on the screen.
+        // The tiles and their labels are one group, centered on the screen: one row in
+        // landscape, two columns in portrait (four tiles of 160 px do not fit 480 px).
         Paint.FontMetrics fm = mLabel.getFontMetrics();
-        float group = TILE + LABEL_GAP + (fm.descent - fm.ascent);
-        float top = Math.round((h - group) / 2);
-        float left = (w - (TILES * TILE + (TILES - 1) * GAP)) / 2;
+        int cols = w >= h ? TILES : 2;
+        int rows = (TILES + cols - 1) / cols;
+        float cell = TILE + LABEL_GAP + (fm.descent - fm.ascent);
+        float top = Math.round((h - (rows * cell + (rows - 1) * ROW_GAP)) / 2);
+        float left = (w - (cols * TILE + (cols - 1) * GAP)) / 2;
         for (int i = 0; i < TILES; i++) {
-            float l = left + i * (TILE + GAP);
-            mTiles[i].set(l, top, l + TILE, top + TILE);
+            float l = left + (i % cols) * (TILE + GAP);
+            float t = top + (i / cols) * (cell + ROW_GAP);
+            mTiles[i].set(l, t, l + TILE, t + TILE);
         }
-        mLabelTop = top + TILE + LABEL_GAP;
         if (mGlow == null) {
             mGlow = makeGlow();
         }
@@ -259,7 +279,7 @@ final class HomeView extends View {
             canvas.restore();
 
             mLabel.setColor(focus ? TEXT : TEXT_MUTED);
-            canvas.drawText(mLabels[i], t.centerX(), mLabelTop - mLabel.ascent(), mLabel);
+            canvas.drawText(mLabels[i], t.centerX(), t.bottom + LABEL_GAP - mLabel.ascent(), mLabel);
         }
 
         // Bluetooth status, top right: 20 px icon, 6 px, 15 px text.
@@ -274,6 +294,25 @@ final class HomeView extends View {
         bt.draw(canvas);
         mSmall.setColor(color);
         canvas.drawText(mStatus, textX, mid - (mSmall.ascent() + mSmall.descent()) / 2, mSmall);
+
+        // Rotate button, left of the status. Focused: the tile focus colors.
+        float right = iconL - ROTATE_GAP;
+        mRotateRect.set(right - ROTATE_SIZE, mid - ROTATE_SIZE / 2f, right, mid + ROTATE_SIZE / 2f);
+        boolean rotateFocus = mFocus == ROTATE;
+        if (rotateFocus) {
+            mFill.setColor(mPressed ? TILE_FILL_PRESSED : TILE_FILL_FOCUS);
+            canvas.drawRoundRect(mRotateRect, ROTATE_RADIUS, ROTATE_RADIUS, mFill);
+            mBorder.setColor(ACCENT);
+            mRect.set(mRotateRect);
+            mRect.inset(0.5f, 0.5f);
+            canvas.drawRoundRect(mRect, ROTATE_RADIUS, ROTATE_RADIUS, mBorder);
+        }
+        int rx = (int) mRotateRect.centerX();
+        int ry = (int) mRotateRect.centerY();
+        mRotateIcon.setBounds(rx - ROTATE_ICON / 2, ry - ROTATE_ICON / 2, rx + ROTATE_ICON / 2,
+                ry + ROTATE_ICON / 2);
+        mRotateIcon.setTint(rotateFocus ? ACCENT_LIGHT : ICON_MUTED);
+        mRotateIcon.draw(canvas);
 
         // Focus dots: one for each tile; the active one is wider.
         float total = (TILES - 1) * DOT_GAP;
@@ -308,11 +347,16 @@ final class HomeView extends View {
         }
     }
 
-    /** The tile and its label: the touch area of a tile. */
+    /** The tile and its label: the touch area of a tile. ROTATE: the rotate button, 8 px more. */
     private int tileAt(float x, float y) {
+        if (x >= mRotateRect.left - 8 && x <= mRotateRect.right + 8
+                && y >= mRotateRect.top - 8 && y <= mRotateRect.bottom + 8) {
+            return ROTATE;
+        }
         for (int i = 0; i < TILES; i++) {
             RectF t = mTiles[i];
-            if (x >= t.left && x <= t.right && y >= t.top && y <= mLabelTop + mLabel.getTextSize() + 8) {
+            if (x >= t.left && x <= t.right && y >= t.top
+                    && y <= t.bottom + LABEL_GAP + mLabel.getTextSize() + 8) {
                 return i;
             }
         }
@@ -320,6 +364,7 @@ final class HomeView extends View {
     }
 
     // Touch: a tap on another tile moves the focus to it; a tap on the focused tile opens it.
+    // A tap on the rotate button rotates at once.
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         switch (e.getActionMasked()) {
@@ -337,7 +382,7 @@ final class HomeView extends View {
                 int tile = mTouchTile;
                 mTouchTile = -1;
                 setTilePressed(tile, false);
-                if (tile == mFocus) {
+                if (tile == mFocus || tile == ROTATE) {
                     mListener.onLaunch(tile);
                 } else if (tile >= 0) {
                     setFocusedTile(tile);

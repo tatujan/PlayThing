@@ -1,0 +1,109 @@
+From: PlayThing builder <builder@localhost>
+Subject: [PATCH] PackageInstaller: silent installs for trusted installer apps
+
+The Car Thing has a knob and a small screen, and app stores such as Droid-ify
+cannot be privileged apps: they do not request INSTALL_PACKAGES. With
+ro.plaything.trusted_installers ("package:certificate SHA-256", comma
+separated), a session of such an app needs no confirmation, and its
+PackageInstaller.uninstall() needs none either, as for an app with
+INSTALL_PACKAGES and DELETE_PACKAGES. The package must belong to the calling
+uid and have the pinned signing certificate. Without the property, nothing
+changes. The uninstall screen (ACTION_UNINSTALL_PACKAGE) has its own patch in
+packages/apps/PackageInstaller.
+
+---
+--- a/services/core/java/com/android/server/pm/PackageInstallerService.java
++++ b/services/core/java/com/android/server/pm/PackageInstallerService.java
+@@ -59,6 +59,7 @@
+ import android.os.RemoteException;
+ import android.os.SELinux;
+ import android.os.SystemClock;
++import android.os.SystemProperties;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+ import android.os.storage.StorageManager;
+@@ -751,6 +752,59 @@
+         return new ParceledListSlice<>(result);
+     }
+ 
++    /**
++     * PlayThing: an installer app in ro.plaything.trusted_installers installs and
++     * uninstalls without a prompt, as an app with INSTALL_PACKAGES and DELETE_PACKAGES. Each
++     * entry is "package:SHA-256 of the signing certificate" (lower case); commas separate the
++     * entries. The package must belong to the uid and have that certificate.
++     */
++    static boolean isTrustedInstaller(PackageManagerService pm, int uid) {
++        final String list = SystemProperties.get("ro.plaything.trusted_installers", "");
++        if (list.isEmpty()) {
++            return false;
++        }
++        final long ident = Binder.clearCallingIdentity();
++        try {
++            final String[] packages = pm.getPackagesForUid(uid);
++            if (packages == null) {
++                return false;
++            }
++            for (String entry : list.split(",")) {
++                final int colon = entry.indexOf(':');
++                final byte[] cert = colon > 0 ? hexSha256(entry.substring(colon + 1).trim()) : null;
++                if (cert == null) {
++                    continue;
++                }
++                final String name = entry.substring(0, colon).trim();
++                for (String pkg : packages) {
++                    if (pkg.equals(name) && pm.hasSigningCertificate(pkg, cert,
++                            PackageManager.CERT_INPUT_SHA256)) {
++                        return true;
++                    }
++                }
++            }
++            return false;
++        } finally {
++            Binder.restoreCallingIdentity(ident);
++        }
++    }
++
++    private static byte[] hexSha256(String hex) {
++        if (hex.length() != 64) {
++            return null;
++        }
++        final byte[] out = new byte[32];
++        for (int i = 0; i < 32; i++) {
++            final int hi = Character.digit(hex.charAt(2 * i), 16);
++            final int lo = Character.digit(hex.charAt(2 * i + 1), 16);
++            if (hi < 0 || lo < 0) {
++                return null;
++            }
++            out[i] = (byte) ((hi << 4) | lo);
++        }
++        return out;
++    }
++
+     @Override
+     public void uninstall(VersionedPackage versionedPackage, String callerPackageName, int flags,
+                 IntentSender statusReceiver, int userId) throws RemoteException {
+@@ -777,8 +831,9 @@
+                     == PackageManager.PERMISSION_GRANTED) {
+             // Sweet, call straight through!
+             mPm.deletePackageVersioned(versionedPackage, adapter.getBinder(), userId, flags);
+-        } else if (isDeviceOwnerOrAffiliatedProfileOwner) {
++        } else if (isDeviceOwnerOrAffiliatedProfileOwner || isTrustedInstaller(mPm, callingUid)) {
+             // Allow the device owner and affiliated profile owner to silently delete packages
++            // (PlayThing: also a trusted installer app, isTrustedInstaller).
+             // Need to clear the calling identity to get DELETE_PACKAGES permission
+             long ident = Binder.clearCallingIdentity();
+             try {
+--- a/services/core/java/com/android/server/pm/PackageInstallerSession.java
++++ b/services/core/java/com/android/server/pm/PackageInstallerSession.java
+@@ -373,8 +373,10 @@
+ 
+         // Device owners and affiliated profile owners  are allowed to silently install packages, so
+         // the permission check is waived if the installer is the device owner.
++        // PlayThing: also a trusted installer app (PackageInstallerService.isTrustedInstaller).
+         return forcePermissionPrompt || !(isPermissionGranted || isInstallerRoot
+-                || isInstallerSystem || isInstallerDeviceOwnerOrAffiliatedProfileOwnerLocked());
++                || isInstallerSystem || isInstallerDeviceOwnerOrAffiliatedProfileOwnerLocked()
++                || PackageInstallerService.isTrustedInstaller(mPm, mInstallerUid));
+     }
+ 
+     public PackageInstallerSession(PackageInstallerService.InternalCallback callback,

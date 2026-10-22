@@ -38,6 +38,7 @@ public AOSP types (the device policy cannot use private ones), and it passes AOS
 |---|---|
 | `init`: `module_load` on `vendor_file`, `sys_module` | `insmod` of `mali.ko` and the decoder modules from `/vendor/lib/modules` |
 | `init`: wake lock, `block_suspend` | the wake lock in `init.superbird.rc` (no suspend) |
+| `system_server`, `platform_app`: read `cpt_installer_prop` (`ro.plaything.trusted_installers`, `installer.te`) | the trusted installer apps (Droid-ify) (`docs/apps.md`). The property has its own type: with `cpt_data_prop` (the `ro.plaything.` prefix), `system_server` cannot read it, and the list is empty. |
 | `init`: `mounton` on `mnt_vendor_file` | the mounts at `/mnt/vendor/...` |
 | composer service: `vndbinder_use`, `setsched` on `kernel` | the AOSP composer service opens `/dev/vndbinder` and sets SCHED_FIFO |
 | `hal_bluetooth_default`: read `cpt_stock_root_file` | the Bluetooth firmware |

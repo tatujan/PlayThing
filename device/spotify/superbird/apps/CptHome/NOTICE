@@ -1,5 +1,6 @@
 CptHome uses icons from Phosphor Icons (https://phosphoricons.com), @phosphor-icons/core 2.1.1:
-res/drawable/ic_car_profile.xml, ic_bluetooth.xml, ic_gear_six.xml, ic_bluetooth_slash.xml.
+res/drawable/ic_car_profile.xml, ic_bluetooth.xml, ic_gear_six.xml, ic_squares_four.xml,
+ic_bluetooth_slash.xml, ic_device_rotate.xml.
 
 MIT License
 

@@ -9,7 +9,7 @@ the third-party software that the build scripts and the flash tool download or u
 ### Phosphor Icons (MIT)
 
 Icon path data from [Phosphor Icons](https://phosphoricons.com) (`@phosphor-icons/core` 2.1.1),
-Copyright (c) 2023 Phosphor Icons, MIT license (`LICENSES/MIT.txt`): `device/spotify/superbird/apps/CptHome/res/drawable/ic_*.xml`, `device/spotify/superbird/apps/CptKeyboard/res/drawable/ic_*.xml`, and `device/spotify/superbird/diplay/carplay-home-icon.*`.
+Copyright (c) 2023 Phosphor Icons, MIT license (`LICENSES/MIT.txt`): `device/spotify/superbird/apps/CptHome/res/drawable/ic_*.xml`, `device/spotify/superbird/apps/CptKeyboard/res/drawable/ic_*.xml`, `device/spotify/superbird/apps/CptManager/res/drawable/ic_*.xml`, `device/spotify/superbird/apps/ThingPod/res/drawable/ic_*.xml`, and `device/spotify/superbird/diplay/carplay-home-icon.*`.
 
 ### Android Open Source Project (Apache-2.0)
 
