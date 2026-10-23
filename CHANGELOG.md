@@ -3,7 +3,7 @@
 The changes of each PlayThing release. The releases are on GitHub, with the image and the flash
 tool in one zip.
 
-## 0.1.0-beta.6
+## 0.2.0-beta
 
 - **Apps.** Droid-ify is the app store: it installs, updates, and removes apps without a prompt.
   An App manager shows the storage and the memory of each app; it can stop an app, clear its
